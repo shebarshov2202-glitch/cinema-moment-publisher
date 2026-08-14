@@ -1,4 +1,4 @@
-name: Patch remote image upload
+name: Use relative Worker endpoint
 
 on:
   push:
@@ -21,30 +21,22 @@ jobs:
         shell: python
         run: |
           from pathlib import Path
-          import base64
 
           path = Path('index.html')
           s = path.read_text(encoding='utf-8')
 
-          start = s.find("async function uploadOnePhoto(file,groupId,index) {")
-          end = s.find("\npublishBtn.addEventListener('click',async () => {", start)
-          if start < 0 or end < 0:
-              raise SystemExit('uploadOnePhoto block not found')
+          old = "const VK_UPLOAD_PROXY = 'https://cinema-moment-vk-proxy.shebarshov2202.workers.dev/vk-upload';"
+          new = "const VK_UPLOAD_PROXY = '/vk-upload';"
+          if old in s:
+              s = s.replace(old, new, 1)
+          elif new not in s:
+              raise SystemExit('VK_UPLOAD_PROXY constant not found')
 
-          replacement = base64.b64decode('YXN5bmMgZnVuY3Rpb24gc2F2ZVVwbG9hZGVkUGhvdG8odXBsb2FkZWQsZ3JvdXBJZCxpbmRleCkgewogIGlmICghdXBsb2FkZWQ/LnBob3RvIHx8ICF1cGxvYWRlZD8uaGFzaCB8fCB1cGxvYWRlZD8uc2VydmVyID09IG51bGwpIHsKICAgIHRocm93IG5ldyBFcnJvcihg0KTQvtGC0L4gJHtpbmRleH06INGB0LXRgNCy0LXRgCBWSyDQstC10YDQvdGD0Lsg0L3QtdC/0L7Qu9C90YvQtSDQtNCw0L3QvdGL0LUuYCk7CiAgfQogIGNvbnN0IHNhdmVkID0gYXdhaXQgYXBpKCdwaG90b3Muc2F2ZVdhbGxQaG90bycsewogICAgZ3JvdXBfaWQ6Z3JvdXBJZCwKICAgIHBob3RvOnR5cGVvZiB1cGxvYWRlZC5waG90byA9PT0gJ3N0cmluZycgPyB1cGxvYWRlZC5waG90byA6IEpTT04uc3RyaW5naWZ5KHVwbG9hZGVkLnBob3RvKSwKICAgIHNlcnZlcjp1cGxvYWRlZC5zZXJ2ZXIsCiAgICBoYXNoOnVwbG9hZGVkLmhhc2gKICB9KTsKICBjb25zdCBwaG90byA9IEFycmF5LmlzQXJyYXkoc2F2ZWQpID8gc2F2ZWRbMF0gOiBzYXZlZD8uaXRlbXM/LlswXTsKICBpZiAoIXBob3RvPy5vd25lcl9pZCB8fCAhcGhvdG8/LmlkKSB0aHJvdyBuZXcgRXJyb3IoYNCk0L7RgtC+ICR7aW5kZXh9OiBwaG90b3Muc2F2ZVdhbGxQaG90byDQvdC1INCy0LXRgNC90YPQuyBJRC5gKTsKICByZXR1cm4gYHBob3RvJHtwaG90by5vd25lcl9pZH1fJHtwaG90by5pZH0ke3Bob3RvLmFjY2Vzc19rZXkgPyAnXycrcGhvdG8uYWNjZXNzX2tleSA6ICcnfWA7Cn0KCmFzeW5jIGZ1bmN0aW9uIHVwbG9hZFJlbW90ZVBob3RvKGl0ZW0sZ3JvdXBJZCxpbmRleCkgewogIGxvZyhg0KTQvtGC0L4gJHtpbmRleH06INGB0LXRgNCy0LXRgCDQt9Cw0LPRgNGD0LfQutC4IFZL4oCmYCk7CiAgY29uc3Qgc2VydmVyID0gYXdhaXQgYXBpKCdwaG90b3MuZ2V0V2FsbFVwbG9hZFNlcnZlcicseyBncm91cF9pZDpncm91cElkIH0pOwogIGlmICghc2VydmVyPy51cGxvYWRfdXJsKSB0aHJvdyBuZXcgRXJyb3IoYNCk0L7RgtC+ICR7aW5kZXh9OiBWSyDQvdC1INCy0LXRgNC90YPQuyB1cGxvYWRfdXJsLmApOwoKICBjb25zdCBib2R5ID0gbmV3IFVSTFNlYXJjaFBhcmFtcygpOwogIGJvZHkuc2V0KCd1cGxvYWRfdXJsJyxzZXJ2ZXIudXBsb2FkX3VybCk7CiAgYm9keS5zZXQoJ2ltYWdlX3VybCcsaXRlbS51cmwpOwoKICBsb2coYNCk0L7RgtC+ICR7aW5kZXh9OiBXb3JrZXIg0YHQsNC8INC/0L7Qu9GD0YfQsNC10YIg0LrQsNC00YAg0Lgg0L7RgtC/0YDQsNCy0LvRj9C10YIg0LXQs9C+INCyIFZL4oCmYCk7CiAgY29uc3QgdXBsb2FkUmVzcG9uc2UgPSBhd2FpdCBmZXRjaChWS19VUExPQURfUFJPWFksewogICAgbWV0aG9kOidQT1NUJywKICAgIGhlYWRlcnM6eyAnQ29udGVudC1UeXBlJzonYXBwbGljYXRpb24veC13d3ctZm9ybS11cmxlbmNvZGVkO2NoYXJzZXQ9VVRGLTgnIH0sCiAgICBib2R5CiAgfSk7CiAgY29uc3QgcmVzcG9uc2VUZXh0ID0gYXdhaXQgdXBsb2FkUmVzcG9uc2UudGV4dCgpOwogIGlmICghdXBsb2FkUmVzcG9uc2Uub2spIHRocm93IG5ldyBFcnJvcihg0KTQvtGC0L4gJHtpbmRleH06IFdvcmtlciBIVFRQICR7dXBsb2FkUmVzcG9uc2Uuc3RhdHVzfSDigJQgJHtyZXNwb25zZVRleHQuc2xpY2UoMCwyNDApfWApOwogIGxldCB1cGxvYWRlZDsKICB0cnkgeyB1cGxvYWRlZCA9IEpTT04ucGFyc2UocmVzcG9uc2VUZXh0KTsgfQogIGNhdGNoIChfKSB7IHRocm93IG5ldyBFcnJvcihg0KTQvtGC0L4gJHtpbmRleH06IFdvcmtlciDQstC10YDQvdGD0Lsg0L3QtSBKU09OOiAke3Jlc3BvbnNlVGV4dC5zbGljZSgwLDI0MCl9YCk7IH0KICByZXR1cm4gc2F2ZVVwbG9hZGVkUGhvdG8odXBsb2FkZWQsZ3JvdXBJZCxpbmRleCk7Cn0KCmFzeW5jIGZ1bmN0aW9uIHVwbG9hZE1hbnVhbFBob3RvKGZpbGUsZ3JvdXBJZCxpbmRleCkgewogIGxvZyhg0KTQvtGC0L4gJHtpbmRleH06INGB0LXRgNCy0LXRgCDQt9Cw0LPRgNGD0LfQutC4IFZL4oCmYCk7CiAgY29uc3Qgc2VydmVyID0gYXdhaXQgYXBpKCdwaG90b3MuZ2V0V2FsbFVwbG9hZFNlcnZlcicseyBncm91cF9pZDpncm91cElkIH0pOwogIGlmICghc2VydmVyPy51cGxvYWRfdXJsKSB0aHJvdyBuZXcgRXJyb3IoYNCk0L7RgtC+ICR7aW5kZXh9OiBWSyDQvdC1INCy0LXRgNC90YPQuyB1cGxvYWRfdXJsLmApOwogIGNvbnN0IGZvcm0gPSBuZXcgRm9ybURhdGEoKTsKICBmb3JtLmFwcGVuZCgncGhvdG8nLGZpbGUsZmlsZS5uYW1lIHx8IGBwaG90by0ke2luZGV4fS5qcGdgKTsKICBmb3JtLmFwcGVuZCgndXBsb2FkX3VybCcsc2VydmVyLnVwbG9hZF91cmwpOwogIGxvZyhg0KTQvtGC0L4gJHtpbmRleH06INC+0YLQv9GA0LDQstC70Y/RjiDRgdCy0L7QuSDRhNCw0LnQuyDRh9C10YDQtdC3IFdvcmtlcuKApmApOwogIGNvbnN0IHVwbG9hZFJlc3BvbnNlID0gYXdhaXQgZmV0Y2goVktfVVBMT0FEX1BST1hZLHsgbWV0aG9kOidQT1NUJyxib2R5OmZvcm0gfSk7CiAgY29uc3QgcmVzcG9uc2VUZXh0ID0gYXdhaXQgdXBsb2FkUmVzcG9uc2UudGV4dCgpOwogIGlmICghdXBsb2FkUmVzcG9uc2Uub2spIHRocm93IG5ldyBFcnJvcihg0KTQvtGC0L4gJHtpbmRleH06IFdvcmtlciBIVFRQICR7dXBsb2FkUmVzcG9uc2Uuc3RhdHVzfSDigJQgJHtyZXNwb25zZVRleHQuc2xpY2UoMCwyNDApfWApOwogIGxldCB1cGxvYWRlZDsKICB0cnkgeyB1cGxvYWRlZCA9IEpTT04ucGFyc2UocmVzcG9uc2VUZXh0KTsgfQogIGNhdGNoIChfKSB7IHRocm93IG5ldyBFcnJvcihg0KTQvtGC0L4gJHtpbmRleH06IFdvcmtlciDQstC10YDQvdGD0Lsg0L3QtSBKU09OOiAke3Jlc3BvbnNlVGV4dC5zbGljZSgwLDI0MCl9YCk7IH0KICByZXR1cm4gc2F2ZVVwbG9hZGVkUGhvdG8odXBsb2FkZWQsZ3JvdXBJZCxpbmRleCk7Cn0K').decode('utf-8')
-          s = s[:start] + replacement + s[end:]
+          old_msg = "if (/Failed to fetch|NetworkError|CORS/i.test(text)) log(`Сетевой сбой. origin=${location.origin}, proxy=${VK_UPLOAD_PROXY}`);"
+          new_msg = "if (/Failed to fetch|NetworkError|CORS/i.test(text)) log(`Сетевой сбой same-origin. origin=${location.origin}, proxy=${VK_UPLOAD_PROXY}`);"
+          s = s.replace(old_msg, new_msg)
 
-          old = base64.b64decode('ICAgIGNvbnN0IGZpbGVzID0gW107CiAgICBmb3IgKGxldCBpbmRleD0wOyBpbmRleDxzZWxlY3RlZE1lZGlhLmxlbmd0aDsgaW5kZXgrKykgewogICAgICBjb25zdCBpdGVtID0gc2VsZWN0ZWRNZWRpYVtpbmRleF07CiAgICAgIGlmIChpdGVtLmtpbmQgPT09ICdyZW1vdGUnKSBmaWxlcy5wdXNoKGF3YWl0IHJlbW90ZVVybFRvRmlsZShpdGVtLnVybCxpbmRleCsxKSk7CiAgICAgIGVsc2UgZmlsZXMucHVzaChpdGVtLmZpbGUpOwogICAgfQoKICAgIGNvbnN0IGF0dGFjaG1lbnRzID0gW107CiAgICBmb3IgKGxldCBpbmRleD0wOyBpbmRleDxmaWxlcy5sZW5ndGg7IGluZGV4KyspIHsKICAgICAgYXR0YWNobWVudHMucHVzaChhd2FpdCB1cGxvYWRPbmVQaG90byhmaWxlc1tpbmRleF0sZ3JvdXBJZCxpbmRleCsxKSk7CiAgICB9Cg==').decode('utf-8')
-          new = base64.b64decode('ICAgIGNvbnN0IGF0dGFjaG1lbnRzID0gW107CiAgICBmb3IgKGxldCBpbmRleD0wOyBpbmRleDxzZWxlY3RlZE1lZGlhLmxlbmd0aDsgaW5kZXgrKykgewogICAgICBjb25zdCBpdGVtID0gc2VsZWN0ZWRNZWRpYVtpbmRleF07CiAgICAgIGlmIChpdGVtLmtpbmQgPT09ICdyZW1vdGUnKSBhdHRhY2htZW50cy5wdXNoKGF3YWl0IHVwbG9hZFJlbW90ZVBob3RvKGl0ZW0sZ3JvdXBJZCxpbmRleCsxKSk7CiAgICAgIGVsc2UgYXR0YWNobWVudHMucHVzaChhd2FpdCB1cGxvYWRNYW51YWxQaG90byhpdGVtLmZpbGUsZ3JvdXBJZCxpbmRleCsxKSk7CiAgICB9Cg==').decode('utf-8')
-          if old not in s:
-              raise SystemExit('publish upload loop not found')
-          s = s.replace(old,new,1)
-
-          old_msg = "if (/Failed to fetch|NetworkError|CORS/i.test(text)) log('Ошибка сети при обращении к Cloudflare Worker. Проверь его адрес и статус Deploy.');"
-          new_msg = "if (/Failed to fetch|NetworkError|CORS/i.test(text)) log(`Сетевой сбой. origin=${location.origin}, proxy=${VK_UPLOAD_PROXY}`);"
-          s = s.replace(old_msg,new_msg)
-
-          path.write_text(s,encoding='utf-8')
+          path.write_text(s, encoding='utf-8')
 
       - name: Commit patched app
         run: |
@@ -55,5 +47,5 @@ jobs:
           git config user.name "Cinema Moment Bot"
           git config user.email "actions@users.noreply.github.com"
           git add index.html
-          git commit -m "Let Worker fetch remote movie frames"
+          git commit -m "Use relative Worker upload route"
           git push

@@ -1,1 +1,1 @@
-trigger 2026-08-14 16:51 MSK
+trigger 2026-08-14 17:08 MSK

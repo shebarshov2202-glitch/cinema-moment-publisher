@@ -1,4 +1,4 @@
-name: Use relative Worker endpoint
+name: Add VK API diagnostics
 
 on:
   push:
@@ -25,16 +25,55 @@ jobs:
           path = Path('index.html')
           s = path.read_text(encoding='utf-8')
 
-          old = "const VK_UPLOAD_PROXY = 'https://cinema-moment-vk-proxy.shebarshov2202.workers.dev/vk-upload';"
-          new = "const VK_UPLOAD_PROXY = '/vk-upload';"
-          if old in s:
-              s = s.replace(old, new, 1)
-          elif new not in s:
-              raise SystemExit('VK_UPLOAD_PROXY constant not found')
+          start = s.find('function errorText(error) {')
+          end = s.find('\n}\n\nfunction buildMessage', start)
+          if start < 0 or end < 0:
+              raise SystemExit('errorText block not found')
+          end += 2
+          error_block = '''function errorText(error) {
+            if (!error) return 'Неизвестная ошибка';
+            const data = error?.error_data || error || {};
+            const msg = data?.error_reason || data?.error_msg || error?.error_msg || error?.message || String(error);
+            const code = data?.error_code ?? error?.error_code;
+            const subcode = data?.error_subcode ?? data?.subcode ?? error?.error_subcode;
+            const method = error?.vk_method;
+            return [method ? `VK ${method}` : '', code != null ? `code=${code}` : '', subcode != null ? `subcode=${subcode}` : '', msg].filter(Boolean).join(' · ');
+          }'''
+          s = s[:start] + error_block + s[end:]
 
-          old_msg = "if (/Failed to fetch|NetworkError|CORS/i.test(text)) log(`Сетевой сбой. origin=${location.origin}, proxy=${VK_UPLOAD_PROXY}`);"
-          new_msg = "if (/Failed to fetch|NetworkError|CORS/i.test(text)) log(`Сетевой сбой same-origin. origin=${location.origin}, proxy=${VK_UPLOAD_PROXY}`);"
-          s = s.replace(old_msg, new_msg)
+          start = s.find('async function api(method,params={}) {')
+          end = s.find('\n}\n\nasync function init()', start)
+          if start < 0 or end < 0:
+              raise SystemExit('api block not found')
+          end += 2
+          api_block = '''async function api(method,params={}) {
+            if (!accessToken) throw new Error('Нет пользовательского токена VK.');
+            try {
+              const result = await bridge.send('VKWebAppCallAPIMethod',{
+                method,
+                params:{ ...params,access_token:accessToken,v:VK_API_VERSION }
+              });
+              return result?.response ?? result;
+            } catch (error) {
+              try { error.vk_method = method; } catch (_) {}
+              log(`VK API ERROR ${method}: ${errorText(error)}`);
+              try { log(`VK RAW ${method}: ${JSON.stringify(error)}`); } catch (_) {}
+              throw error;
+            }
+          }'''
+          s = s[:start] + api_block + s[end:]
+
+          marker = "const saved = await api('photos.saveWallPhoto',{"
+          if marker in s and 'сохраняю через photos.saveWallPhoto' not in s:
+              s = s.replace(marker, "log(`Фото ${index}: сохраняю через photos.saveWallPhoto…`);\n  " + marker, 1)
+
+          marker2 = "if (!photo?.owner_id || !photo?.id) throw new Error(`Фото ${index}: photos.saveWallPhoto не вернул ID.`);"
+          if marker2 in s and 'photos.saveWallPhoto OK' not in s:
+              s = s.replace(marker2, marker2 + "\n  log(`Фото ${index}: photos.saveWallPhoto OK → photo${photo.owner_id}_${photo.id}`);", 1)
+
+          marker3 = "const result = await api('wall.post',{"
+          if marker3 in s and 'Вызываю wall.post' not in s:
+              s = s.replace(marker3, "log(`Вызываю wall.post: owner_id=${-Math.abs(groupId)}, from_group=1, publish_date=${publishDate}, attachments=${attachments.length}`);\n    " + marker3, 1)
 
           path.write_text(s, encoding='utf-8')
 
@@ -47,5 +86,5 @@ jobs:
           git config user.name "Cinema Moment Bot"
           git config user.email "actions@users.noreply.github.com"
           git add index.html
-          git commit -m "Use relative Worker upload route"
+          git commit -m "Add detailed VK API diagnostics"
           git push

@@ -1,0 +1,90 @@
+name: Diagnose VK API errors
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'diagnostic-trigger.txt'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch diagnostics into index.html
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          path = Path('index.html')
+          s = path.read_text(encoding='utf-8')
+
+          old_error = re.compile(r"function errorText\(error\) \{.*?\n\}", re.S)
+          new_error = '''function errorText(error) {
+  if (!error) return 'Неизвестная ошибка';
+  const data = error?.error_data || error || {};
+  const msg = data?.error_reason || data?.error_msg || error?.error_msg || error?.message || String(error);
+  const code = data?.error_code ?? error?.error_code;
+  const subcode = data?.error_subcode ?? data?.subcode ?? error?.error_subcode;
+  const method = error?.vk_method;
+  return [method ? `VK ${method}` : '', code != null ? `code=${code}` : '', subcode != null ? `subcode=${subcode}` : '', msg].filter(Boolean).join(' · ');
+}'''
+          s, n = old_error.subn(new_error, s, count=1)
+          if n != 1:
+              raise SystemExit('errorText block not found')
+
+          old_api = re.compile(r"async function api\(method,params=\{\}\) \{.*?\n\}", re.S)
+          new_api = '''async function api(method,params={}) {
+  if (!accessToken) throw new Error('Нет пользовательского токена VK.');
+  try {
+    const result = await bridge.send('VKWebAppCallAPIMethod',{
+      method,
+      params:{ ...params,access_token:accessToken,v:VK_API_VERSION }
+    });
+    return result?.response ?? result;
+  } catch (error) {
+    try { error.vk_method = method; } catch (_) {}
+    log(`VK API ERROR ${method}: ${errorText(error)}`);
+    try { log(`VK RAW ${method}: ${JSON.stringify(error)}`); } catch (_) {}
+    throw error;
+  }
+}'''
+          s, n = old_api.subn(new_api, s, count=1)
+          if n != 1:
+              raise SystemExit('api block not found')
+
+          old_save = "const saved = await api('photos.saveWallPhoto',{"
+          new_save = "log(`Фото ${index}: сохраняю через photos.saveWallPhoto…`);\n  const saved = await api('photos.saveWallPhoto',{"
+          if old_save in s and "сохраняю через photos.saveWallPhoto" not in s:
+              s = s.replace(old_save, new_save, 1)
+
+          old_return = "return `photo${photo.owner_id}_${photo.id}${photo.access_key ? '_'+photo.access_key : ''}`;"
+          new_return = "log(`Фото ${index}: photos.saveWallPhoto OK → photo${photo.owner_id}_${photo.id}`);\n  return `photo${photo.owner_id}_${photo.id}${photo.access_key ? '_'+photo.access_key : ''}`;"
+          if old_return in s and "photos.saveWallPhoto OK" not in s:
+              s = s.replace(old_return, new_return, 1)
+
+          old_wall = "const result = await api('wall.post',{"
+          new_wall = "log(`Вызываю wall.post: owner_id=${-Math.abs(groupId)}, from_group=1, publish_date=${publishDate}, attachments=${attachments.length}`);\n    const result = await api('wall.post',{"
+          if old_wall in s and "Вызываю wall.post" not in s:
+              s = s.replace(old_wall, new_wall, 1)
+
+          path.write_text(s,encoding='utf-8')
+
+      - name: Commit diagnostics
+        run: |
+          if git diff --quiet -- index.html; then
+            echo "No changes needed"
+            exit 0
+          fi
+          git config user.name "Cinema Moment Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html
+          git commit -m "Add detailed VK API error diagnostics"
+          git push

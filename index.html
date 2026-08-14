@@ -218,7 +218,12 @@ function setStatus(el,text,type='') {
 
 function errorText(error) {
   if (!error) return 'Неизвестная ошибка';
-  return error?.error_data?.error_reason || error?.error_data?.error_msg || error?.error_msg || error?.message || String(error);
+  const data = error?.error_data || error || {};
+  const msg = data?.error_reason || data?.error_msg || error?.error_msg || error?.message || String(error);
+  const code = data?.error_code ?? error?.error_code;
+  const subcode = data?.error_subcode ?? data?.subcode ?? error?.error_subcode;
+  const method = error?.vk_method;
+  return [method ? `VK ${method}` : '', code != null ? `code=${code}` : '', subcode != null ? `subcode=${subcode}` : '', msg].filter(Boolean).join(' · ');
 }
 
 function buildMessage() {
@@ -511,11 +516,18 @@ function moscowTimestamp(dateString,timeString) {
 
 async function api(method,params={}) {
   if (!accessToken) throw new Error('Нет пользовательского токена VK.');
-  const result = await bridge.send('VKWebAppCallAPIMethod',{
-    method,
-    params:{ ...params,access_token:accessToken,v:VK_API_VERSION }
-  });
-  return result?.response ?? result;
+  try {
+    const result = await bridge.send('VKWebAppCallAPIMethod',{
+      method,
+      params:{ ...params,access_token:accessToken,v:VK_API_VERSION }
+    });
+    return result?.response ?? result;
+  } catch (error) {
+    try { error.vk_method = method; } catch (_) {}
+    log(`VK API ERROR ${method}: ${errorText(error)}`);
+    try { log(`VK RAW ${method}: ${JSON.stringify(error)}`); } catch (_) {}
+    throw error;
+  }
 }
 
 async function init() {
@@ -593,6 +605,7 @@ async function saveUploadedPhoto(uploaded,groupId,index) {
   if (!uploaded?.photo || !uploaded?.hash || uploaded?.server == null) {
     throw new Error(`Фото ${index}: сервер VK вернул неполные данные.`);
   }
+  log(`Фото ${index}: сохраняю через photos.saveWallPhoto…`);
   const saved = await api('photos.saveWallPhoto',{
     group_id:groupId,
     photo:typeof uploaded.photo === 'string' ? uploaded.photo : JSON.stringify(uploaded.photo),
@@ -601,6 +614,7 @@ async function saveUploadedPhoto(uploaded,groupId,index) {
   });
   const photo = Array.isArray(saved) ? saved[0] : saved?.items?.[0];
   if (!photo?.owner_id || !photo?.id) throw new Error(`Фото ${index}: photos.saveWallPhoto не вернул ID.`);
+  log(`Фото ${index}: photos.saveWallPhoto OK → photo${photo.owner_id}_${photo.id}`);
   return `photo${photo.owner_id}_${photo.id}${photo.access_key ? '_'+photo.access_key : ''}`;
 }
 
@@ -675,6 +689,7 @@ publishBtn.addEventListener('click',async () => {
       else attachments.push(await uploadManualPhoto(item.file,groupId,index+1));
     }
 
+    log(`Вызываю wall.post: owner_id=${-Math.abs(groupId)}, from_group=1, publish_date=${publishDate}, attachments=${attachments.length}`);
     const result = await api('wall.post',{
       owner_id:-Math.abs(groupId),from_group:1,signed:0,
       message,attachments:attachments.join(','),publish_date:publishDate

@@ -1,0 +1,59 @@
+name: Add community token publishing v2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'community-patch-trigger-v2.txt'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch index.html
+        shell: python
+        run: |
+          from pathlib import Path
+          import base64
+          path = Path('index.html')
+          s = path.read_text(encoding='utf-8')
+          d = lambda x: base64.b64decode(x).decode('utf-8')
+          old_auth = d('ICAgICAgPGJ1dHRvbiBpZD0iY29ubmVjdEJ0biIgY2xhc3M9InByaW1hcnkiIHR5cGU9ImJ1dHRvbiI+0KDQsNC30YDQtdGI0LjRgtGMINC00L7RgdGC0YPQvzwvYnV0dG9uPgogICAgICA8YnV0dG9uIGlkPSJjaGVja0J0biIgY2xhc3M9InNlY29uZGFyeSIgdHlwZT0iYnV0dG9uIiBkaXNhYmxlZD7Qn9GA0L7QstC10YDQuNGC0Ywg0LTQvtGB0YLRg9C/INC6INCz0YDRg9C/0L/QtTwvYnV0dG9uPgogICAgICA8YnV0dG9uIGlkPSJkaXNjb25uZWN0QnRuIiBjbGFzcz0iZGFuZ2VyIiB0eXBlPSJidXR0b24iIGRpc2FibGVkPtCh0LHRgNC+0YHQuNGC0Ywg0LTQvtGB0YLRg9C/PC9idXR0b24+CiAgICAgIDxzcGFuIGlkPSJhdXRoQmFkZ2UiIGNsYXNzPSJwaWxsIj7QvdC1INC/0L7QtNC60LvRjtGH0LXQvdC+PC9zcGFuPg==')
+          new_auth = d('ICAgICAgPGJ1dHRvbiBpZD0iY29ubmVjdEJ0biIgY2xhc3M9InByaW1hcnkiIHR5cGU9ImJ1dHRvbiI+0KDQsNC30YDQtdGI0LjRgtGMINC00L7RgdGC0YPQvzwvYnV0dG9uPgogICAgICA8YnV0dHRvbiBpZD0iY29tbXVuaXR5QnRuIiBjbGFzcz0ic2Vjb25kYXJ5IiB0eXBlPSJidXR0b24iPtCf0L7QtNC60LvRjtGH0LjRgtGMINGB0L7QvtCx0YnQtdGB0YLQstC+PC9idXR0b24+CiAgICAgIDxidXR0b24gaWQ9ImNoZWNrQnRuIiBjbGFzcz0ic2Vjb25kYXJ5IiB0eXBlPSJidXR0b24iIGRpc2FibGVkPtCf0YDQvtCy0LXRgNC40YLRjCDQtNC+0YHRgtGD0L8g0Log0LPRgNGD0L/Qv9C1PC9idXR0b24+CiAgICAgIDxidXR0b24gaWQ9ImRpc2Nvbm5lY3RCdG4iIGNsYXNzPSJkYW5nZXIiIHR5cGU9ImJ1dHRvbiIgZGlzYWJsZWQ+0KHQsdGA0L7RgdC40YLRjCDQtNC+0YHRgtGD0L88L2J1dHRvbj4KICAgICAgPHNwYW4gaWQ9ImF1dGhCYWRnZSIgY2xhc3M9InBpbGwiPtC/0L7Qu9GM0LfQvtCy0LDRgtC10LvRjCDQvdC1INC/0L7QtNC60LvRjtGH0ZHQvTwvc3Bhbj4KICAgICAgPHNwYW4gaWQ9ImNvbW11bml0eUJhZGdlIiBjbGFzcz0icGlsbCI+0YHQvtC+0LHRidC10YHRgtCy0L4g0L3QtSDQv9C+0LTQutC70Y7Rh9C10L3Qvjwvc3Bhbj4=')
+          old_status = d('ICAgIDxkaXYgaWQ9ImF1dGhTdGF0dXMiIGNsYXNzPSJzdGF0dXMiPtCe0YLQutGA0L7QuSDQv9GA0LjQu9C+0LbQtdC90LjQtSDQstC90YPRgtGA0Lgg0JLQmtC+0L3RgtCw0LrRgtC1INC4INC90LDQttC80LggwqvQoNCw0LfRgNC10YjQuNGC0Ywg0LTQvtGB0YLRg9C/wrsuPC9kaXY+CiAgICA8ZGl2IGNsYXNzPSJzZWN1cml0eSI+Vkst0YLQvtC60LXQvSDRgdGD0YnQtdGB0YLQstGD0LXRgiDRgtC+0LvRjNC60L4g0LIg0L/QsNC80Y/RgtC4INC+0YLQutGA0YvRgtC+0Lkg0LLQutC70LDQtNC60LguINCSIEdpdEh1YiwgY29va2llcyDQuCBsb2NhbFN0b3JhZ2Ug0L7QvSDQvdC1INC30LDQv9C40YHRi9Cy0LDQtdGC0YHRjy48L2Rpdj4=')
+          new_status = d('ICAgIDxkaXYgaWQ9ImF1dGhTdGF0dXMiIGNsYXNzPSJzdGF0dXMiPtCh0L3QsNGH0LDQu9CwINC90LDQttC80LggwqvQoNCw0LfRgNC10YjQuNGC0Ywg0LTQvtGB0YLRg9C/wrssINC30LDRgtC10LwgwqvQn9C+0LTQutC70Y7Rh9C40YLRjCDRgdC+0L7QsdGJ0LXRgdGC0LLQvsK7LjwvZGl2PgogICAgPGRpdiBpZD0iY29tbXVuaXR5U3RhdHVzIiBjbGFzcz0ic3RhdHVzIj7QlNC70Y8g0YTQuNC90LDQu9GM0L3QvtCz0L4gd2FsbC5wb3N0INC90YPQttC10L0g0YLQvtC60LXQvSDRgdCw0LzQvtCz0L4g0YHQvtC+0LHRidC10YHRgtCy0LAuIFZLINCy0YvQtNCw0YHRgiDQtdCz0L4g0YfQtdGA0LXQtyDRgdC40YHRgtC10LzQvdC+0LUg0L7QutC90L4uPC9kaXY+CiAgICA8ZGl2IGNsYXNzPSJzZWN1cml0eSI+0J7QsdCwIFZLLdGC0L7QutC10L3QsCDRgdGD0YnQtdGB0YLQstGD0Y7RgiDRgtC+0LvRjNC60L4g0LIg0L/QsNC80Y/RgtC4INC+0YLQutGA0YvRgtC+0Lkg0LLQutC70LDQtNC60LguINCSIEdpdEh1YiwgY29va2llcyDQuCBsb2NhbFN0b3JhZ2Ug0L7QvdC4INC90LUg0LfQsNC/0LjRgdGL0LLQsNGO0YLRgdGPLjwvZGl2Pg==')
+          community_block = d('CmNvbW11bml0eUJ0bi5hZGRFdmVudExpc3RlbmVyKCdjbGljaycsYXN5bmMgKCkgPT4gewogIGNvbnN0IGdyb3VwSWQgPSBOdW1iZXIoJCgnZ3JvdXBJZCcpLnZhbHVlKTsKICBpZiAoIWdyb3VwSWQpIHsKICAgIHNldFN0YXR1cygkKCdjb21tdW5pdHlTdGF0dXMnKSwn0J3QtSDRg9C60LDQt9Cw0L0gSUQg0YHQvtC+0LHRidC10YHRgtCy0LAuJywnZXJyJyk7CiAgICByZXR1cm47CiAgfQogIGNvbW11bml0eUJ0bi5kaXNhYmxlZCA9IHRydWU7CiAgc2V0U3RhdHVzKCQoJ2NvbW11bml0eVN0YXR1cycpLCdWSyDQt9Cw0L/RgNCw0YjQuNCy0LDQtdGCINC/0YDQsNCy0L4g0YPQv9GA0LDQstC70LXQvdC40Y8g0YHQvtC+0LHRidC10YHRgtCy0L7QvOKApicpOwogIHRyeSB7CiAgICBjb25zdCByZXN1bHQgPSBhd2FpdCBicmlkZ2Uuc2VuZCgnVktXZWJBcHBHZXRDb21tdW5pdHlUb2tlbicsewogICAgICBhcHBfaWQ6QVBQX0lELAogICAgICBncm91cF9pZDpncm91cElkLAogICAgICBzY29wZTonbWFuYWdlJwogICAgfSk7CiAgICBpZiAoIXJlc3VsdD8uYWNjZXNzX3Rva2VuKSB0aHJvdyBuZXcgRXJyb3IoJ1ZLINC90LUg0LLQtdGA0L3Rg9C7INGC0L7QutC10L0g0YHQvtC+0LHRidC10YHRgtCy0LAuJyk7CiAgICBjb21tdW5pdHlUb2tlbiA9IHJlc3VsdC5hY2Nlc3NfdG9rZW47CiAgICAkKCdjb21tdW5pdHlCYWRnZScpLnRleHRDb250ZW50ID0gJ9GB0L7QvtCx0YnQtdGB0YLQstC+INC/0L7QtNC60LvRjtGH0LXQvdC+JzsKICAgIHNldFN0YXR1cygkKCdjb21tdW5pdHlTdGF0dXMnKSxgQ2luZW1hIE1vbWVudCDQv9C+0LTQutC70Y7Rh9C10L3Qvi4g0KDQsNC30YDQtdGI0LXQvdC40Y86ICR7cmVzdWx0LnNjb3BlIHx8ICdtYW5hZ2UnfS5gLCdvaycpOwogICAgbG9nKCdWSyBjb21tdW5pdHkgdG9rZW46IE9LJyk7CiAgfSBjYXRjaCAoZXJyb3IpIHsKICAgIGNvbW11bml0eVRva2VuID0gbnVsbDsKICAgICQoJ2NvbW11bml0eUJhZGdlJykudGV4dENvbnRlbnQgPSAn0YHQvtC+0LHRidC10YHRgtCy0L4g0L3QtSDQv9C+0LTQutC70Y7Rh9C10L3Qvic7CiAgICBzZXRTdGF0dXMoJCgnY29tbXVuaXR5U3RhdHVzJyksYNCd0LUg0YPQtNCw0LvQvtGB0Ywg0L/QvtC00LrQu9GO0YfQuNGC0Ywg0YHQvtC+0LHRidC10YHRgtCy0L46ICR7ZXJyb3JUZXh0KGVycm9yKX1gLCdlcnInKTsKICAgIGxvZyhgVksgY29tbXVuaXR5IGF1dGggRVJST1I6ICR7ZXJyb3JUZXh0KGVycm9yKX1gKTsKICB9IGZpbmFsbHkgewogICAgY29tbXVuaXR5QnRuLmRpc2FibGVkID0gZmFsc2U7CiAgICB1cGRhdGVQdWJsaXNoU3RhdGUoKTsKICB9Cn0pOwoK')
+          old_post = d('ICAgIGxvZyhg0JLRi9C30YvQstCw0Y4gd2FsbC5wb3N0OiBvd25lcl9pZD0key1NYXRoLmFicyhncm91cElkKX0sIGZyb21fZ3JvdXA9MSwgcHVibGlzaF9kYXRlPSR7cHVibGlzaERhdGV9LCBhdHRhY2htZW50cz0ke2F0dGFjaG1lbnRzLmxlbmd0aH1gKTsKICAgIGNvbnN0IHJlc3VsdCA9IGF3YWl0IGFwaSgnd2FsbC5wb3N0Jyx7CiAgICAgIG93bmVyX2lkOi1NYXRoLmFicyhncm91cElkKSxmcm9tX2dyb3VwOjEsc2lnbmVkOjAsCiAgICAgIG1lc3NhZ2UsYXR0YWNobWVudHM6YXR0YWNobWVudHMuam9pbignLCcpLHB1Ymxpc2hfZGF0ZTpwdWJsaXNoRGF0ZQogICAgfSk7CgogICAgY29uc3QgcG9zdElkID0gcmVzdWx0Py5wb3N0X2lkID8/IHJlc3VsdDs=')
+          new_post = d('ICAgIGxvZyhg0JLRi9C30YvQstCw0Y4gc2VydmVyLXNpZGUgd2FsbC5wb3N0OiBvd25lcl9pZD0key1NYXRoLmFicyhncm91cElkKX0sIHB1Ymxpc2hfZGF0ZT0ke3B1Ymxpc2hEYXRlfSwgYXR0YWNobWVudHM9JHthdHRhY2htZW50cy5sZW5ndGh9YCk7CiAgICBjb25zdCBib2R5ID0gbmV3IFVSTFNlYXJjaFBhcmFtcygpOwogICAgYm9keS5zZXQoJ2FjY2Vzc190b2tlbicsY29tbXVuaXR5VG9rZW4pOwogICAgYm9keS5zZXQoJ293bmVyX2lkJyxTdHJpbmcoLU1hdGguYWJzKGdyb3VwSWQpKSk7CiAgICBib2R5LnNldCgnZnJvbV9ncm91cCcsJzEnKTsKICAgIGJvZHkuc2V0KCdzaWduZWQnLCcwJyk7CiAgICBib2R5LnNldCgnbWVzc2FnZScsbWVzc2FnZSk7CiAgICBib2R5LnNldCgnYXR0YWNobWVudHMnLGF0dGFjaG1lbnRzLmpvaW4oJywnKSk7CiAgICBib2R5LnNldCgncHVibGlzaF9kYXRlJyxTdHJpbmcocHVibGlzaERhdGUpKTsKICAgIGJvZHkuc2V0KCd2JyxWS19BUElfVkVSU0lPTik7CiAgICBjb25zdCBwdWJsaXNoUmVzcG9uc2UgPSBhd2FpdCBmZXRjaChWS19QVUJMSVNIX1BST1hZLHsKICAgICAgbWV0aG9kOidQT1NUJywKICAgICAgaGVhZGVyczp7ICdDb250ZW50LVR5cGUnOidhcHBsaWNhdGlvbi94LXd3dy1mb3JtLXVybGVuY29kZWQ7Y2hhcnNldD1VVEYtOCcgfSwKICAgICAgYm9keQogICAgfSk7CiAgICBjb25zdCBwdWJsaXNoVGV4dCA9IGF3YWl0IHB1Ymxpc2hSZXNwb25zZS50ZXh0KCk7CiAgICBpZiAoIXB1Ymxpc2hSZXNwb25zZS5vaykgdGhyb3cgbmV3IEVycm9yKGBWSyBwdWJsaXNoIHByb3h5IEhUVFAgJHtwdWJsaXNoUmVzcG9uc2Uuc3RhdHVzfSDigJQgJHtwdWJsaXNoVGV4dC5zbGljZSgwLDMwMCl9YCk7CiAgICBsZXQgcHVibGlzaEpzb247CiAgICB0cnkgeyBwdWJsaXNoSnNvbiA9IEpTT04ucGFyc2UocHVibGlzaFRleHQpOyB9CiAgICBjYXRjaCAoXykgeyB0aHJvdyBuZXcgRXJyb3IoYFZLIHB1Ymxpc2ggcHJveHkg0LLQtdGA0L3Rg9C7INC90LUgSlNPTjogJHtwdWJsaXNoVGV4dC5zbGljZSgwLDMwMCl9YCk7IH0KICAgIGlmIChwdWJsaXNoSnNvbj8uZXJyb3IpIHRocm93IG5ldyBFcnJvcihgVksgd2FsbC5wb3N0IMK3IGNvZGU9JHtwdWJsaXNoSnNvbi5lcnJvci5lcnJvcl9jb2RlfSDCtyAke3B1Ymxpc2hKc29uLmVycm9yLmVycm9yX21zZ31gKTsKICAgIGNvbnN0IHJlc3VsdCA9IHB1Ymxpc2hKc29uPy5yZXNwb25zZTsKICAgIGNvbnN0IHBvc3RJZCA9IHJlc3VsdD8ucG9zdF9pZCA/PyByZXN1bHQ7')
+          if old_auth in s: s = s.replace(old_auth,new_auth,1)
+          if old_status in s: s = s.replace(old_status,new_status,1)
+          s = s.replace("const VK_UPLOAD_PROXY = '/vk-upload';", "const VK_UPLOAD_PROXY = '/vk-upload';\nconst VK_PUBLISH_PROXY = '/vk-publish';", 1)
+          s = s.replace("let accessToken = null;", "let accessToken = null;\nlet communityToken = null;", 1)
+          s = s.replace("const connectBtn = $('connectBtn');", "const connectBtn = $('connectBtn');\nconst communityBtn = $('communityBtn');", 1)
+          s = s.replace("publishBtn.disabled = !(accessToken && count >= 1 && count <= MAX_PHOTOS);", "publishBtn.disabled = !(accessToken && communityToken && count >= 1 && count <= MAX_PHOTOS);", 1)
+          marker = "disconnectBtn.addEventListener('click',() => {"
+          if "VKWebAppGetCommunityToken" not in s and marker in s: s = s.replace(marker,community_block+marker,1)
+          s = s.replace("  accessToken = null;\n  $('authBadge').textContent = 'не подключено';", "  accessToken = null;\n  communityToken = null;\n  $('authBadge').textContent = 'пользователь не подключён';\n  $('communityBadge').textContent = 'сообщество не подключено';", 1)
+          s = s.replace("    if (!accessToken) throw new Error('Сначала разреши доступ к VK.');", "    if (!accessToken) throw new Error('Сначала разреши доступ к VK.');\n    if (!communityToken) throw new Error('Нажми «Подключить сообщество» в первом блоке.');", 1)
+          if old_post in s: s = s.replace(old_post,new_post,1)
+          else: raise SystemExit('wall.post block not found')
+          path.write_text(s,encoding='utf-8')
+
+      - name: Commit patched app
+        run: |
+          if git diff --quiet -- index.html; then
+            echo "No changes needed"
+            exit 0
+          fi
+          git config user.name "Cinema Moment Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html
+          git commit -m "Use community token for server-side wall.post"
+          git push

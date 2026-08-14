@@ -191,7 +191,7 @@ import bridge from 'https://cdn.jsdelivr.net/npm/@vkontakte/vk-bridge@2.14.0/+es
 const APP_ID = 54720636;
 const VK_API_VERSION = '5.199';
 const KP_API = 'https://kinopoiskapiunofficial.tech/api';
-const VK_UPLOAD_PROXY = 'https://cinema-moment-vk-proxy.shebarshov2202.workers.dev/vk-upload';
+const VK_UPLOAD_PROXY = '/vk-upload';
 const MAX_PHOTOS = 7;
 let accessToken = null;
 let candidateRemote = [];
@@ -687,7 +687,7 @@ publishBtn.addEventListener('click',async () => {
     const text = errorText(error);
     setStatus($('publishStatus'),`Не удалось создать пост: ${text}`,'err');
     log(`PUBLISH ERROR: ${text}`);
-    if (/Failed to fetch|NetworkError|CORS/i.test(text)) log(`Сетевой сбой. origin=${location.origin}, proxy=${VK_UPLOAD_PROXY}`);
+    if (/Failed to fetch|NetworkError|CORS/i.test(text)) log(`Сетевой сбой same-origin. origin=${location.origin}, proxy=${VK_UPLOAD_PROXY}`);
   } finally {
     connectBtn.disabled = false;
     importBtn.disabled = false;

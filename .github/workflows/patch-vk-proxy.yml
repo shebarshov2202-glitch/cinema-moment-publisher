@@ -1,4 +1,4 @@
-name: Patch VK upload proxy
+name: Patch remote image upload
 
 on:
   push:
@@ -25,25 +25,99 @@ jobs:
           path = Path('index.html')
           s = path.read_text(encoding='utf-8')
 
-          proxy_const = "const VK_UPLOAD_PROXY = 'https://cinema-moment-vk-proxy.shebarshov2202.workers.dev/vk-upload';"
-          if proxy_const not in s:
-              anchor = "const KP_API = 'https://kinopoiskapiunofficial.tech/api';"
-              if anchor not in s:
-                  raise SystemExit('KP_API anchor not found')
-              s = s.replace(anchor, anchor + "\n" + proxy_const, 1)
+          # Replace the existing upload helper with two helpers:
+          # remote Kinopoisk images are now passed to the Worker by URL only,
+          # so the browser never uploads the binary image to workers.dev.
+          start = s.find("async function uploadOnePhoto(file,groupId,index) {")
+          end = s.find("\npublishBtn.addEventListener('click',async () => {", start)
+          if start < 0 or end < 0:
+              raise SystemExit('uploadOnePhoto block not found')
 
-          old = "const uploadResponse = await fetch(server.upload_url,{ method:'POST',body:form });"
-          new = "form.append('upload_url',server.upload_url);\n  log(`Фото ${index}: отправляю через Cloudflare Worker…`);\n  const uploadResponse = await fetch(VK_UPLOAD_PROXY,{ method:'POST',body:form });"
-          if old in s:
-              s = s.replace(old, new, 1)
-          elif "fetch(VK_UPLOAD_PROXY" not in s:
-              raise SystemExit('Direct VK upload line not found')
+          replacement = r'''async function saveUploadedPhoto(uploaded,groupId,index) {
+  if (!uploaded?.photo || !uploaded?.hash || uploaded?.server == null) {
+    throw new Error(`Фото ${index}: сервер VK вернул неполные данные.`);
+  }
+  const saved = await api('photos.saveWallPhoto',{
+    group_id:groupId,
+    photo:typeof uploaded.photo === 'string' ? uploaded.photo : JSON.stringify(uploaded.photo),
+    server:uploaded.server,
+    hash:uploaded.hash
+  });
+  const photo = Array.isArray(saved) ? saved[0] : saved?.items?.[0];
+  if (!photo?.owner_id || !photo?.id) throw new Error(`Фото ${index}: photos.saveWallPhoto не вернул ID.`);
+  return `photo${photo.owner_id}_${photo.id}${photo.access_key ? '_'+photo.access_key : ''}`;
+}
 
-          old_cors = "if (/Failed to fetch|NetworkError|CORS/i.test(text)) log('Похоже на CORS. Тогда следующим шагом добавим серверный прокси, без установки программ на компьютер.');"
-          new_cors = "if (/Failed to fetch|NetworkError|CORS/i.test(text)) log('Ошибка сети при обращении к Cloudflare Worker. Проверь его адрес и статус Deploy.');"
-          s = s.replace(old_cors, new_cors)
+async function uploadRemotePhoto(item,groupId,index) {
+  log(`Фото ${index}: сервер загрузки VK…`);
+  const server = await api('photos.getWallUploadServer',{ group_id:groupId });
+  if (!server?.upload_url) throw new Error(`Фото ${index}: VK не вернул upload_url.`);
 
-          path.write_text(s, encoding='utf-8')
+  const body = new URLSearchParams();
+  body.set('upload_url',server.upload_url);
+  body.set('image_url',item.url);
+
+  log(`Фото ${index}: Worker сам получает кадр и отправляет его в VK…`);
+  const uploadResponse = await fetch(VK_UPLOAD_PROXY,{
+    method:'POST',
+    headers:{ 'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8' },
+    body
+  });
+  const responseText = await uploadResponse.text();
+  if (!uploadResponse.ok) throw new Error(`Фото ${index}: Worker HTTP ${uploadResponse.status} — ${responseText.slice(0,240)}`);
+  let uploaded;
+  try { uploaded = JSON.parse(responseText); }
+  catch (_) { throw new Error(`Фото ${index}: Worker вернул не JSON: ${responseText.slice(0,240)}`); }
+  return saveUploadedPhoto(uploaded,groupId,index);
+}
+
+async function uploadManualPhoto(file,groupId,index) {
+  log(`Фото ${index}: сервер загрузки VK…`);
+  const server = await api('photos.getWallUploadServer',{ group_id:groupId });
+  if (!server?.upload_url) throw new Error(`Фото ${index}: VK не вернул upload_url.`);
+  const form = new FormData();
+  form.append('photo',file,file.name || `photo-${index}.jpg`);
+  form.append('upload_url',server.upload_url);
+  log(`Фото ${index}: отправляю свой файл через Worker…`);
+  const uploadResponse = await fetch(VK_UPLOAD_PROXY,{ method:'POST',body:form });
+  const responseText = await uploadResponse.text();
+  if (!uploadResponse.ok) throw new Error(`Фото ${index}: Worker HTTP ${uploadResponse.status} — ${responseText.slice(0,240)}`);
+  let uploaded;
+  try { uploaded = JSON.parse(responseText); }
+  catch (_) { throw new Error(`Фото ${index}: Worker вернул не JSON: ${responseText.slice(0,240)}`); }
+  return saveUploadedPhoto(uploaded,groupId,index);
+}
+'''
+          s = s[:start] + replacement + s[end:]
+
+          old = r'''    const files = [];
+    for (let index=0; index<selectedMedia.length; index++) {
+      const item = selectedMedia[index];
+      if (item.kind === 'remote') files.push(await remoteUrlToFile(item.url,index+1));
+      else files.push(item.file);
+    }
+
+    const attachments = [];
+    for (let index=0; index<files.length; index++) {
+      attachments.push(await uploadOnePhoto(files[index],groupId,index+1));
+    }
+'''
+          new = r'''    const attachments = [];
+    for (let index=0; index<selectedMedia.length; index++) {
+      const item = selectedMedia[index];
+      if (item.kind === 'remote') attachments.push(await uploadRemotePhoto(item,groupId,index+1));
+      else attachments.push(await uploadManualPhoto(item.file,groupId,index+1));
+    }
+'''
+          if old not in s:
+              raise SystemExit('publish upload loop not found')
+          s = s.replace(old,new,1)
+
+          old_msg = "if (/Failed to fetch|NetworkError|CORS/i.test(text)) log('Ошибка сети при обращении к Cloudflare Worker. Проверь его адрес и статус Deploy.');"
+          new_msg = "if (/Failed to fetch|NetworkError|CORS/i.test(text)) log(`Сетевой сбой. origin=${location.origin}, proxy=${VK_UPLOAD_PROXY}`);"
+          s = s.replace(old_msg,new_msg)
+
+          path.write_text(s,encoding='utf-8')
 
       - name: Commit patched app
         run: |
@@ -54,5 +128,5 @@ jobs:
           git config user.name "Cinema Moment Bot"
           git config user.email "actions@users.noreply.github.com"
           git add index.html
-          git commit -m "Route VK photo uploads through Cloudflare Worker"
+          git commit -m "Let Worker fetch remote movie frames"
           git push

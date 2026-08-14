@@ -1,0 +1,142 @@
+name: Add community token publishing
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'community-patch-trigger.txt'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch index.html
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('index.html')
+          s = path.read_text(encoding='utf-8')
+
+          old = '''      <button id="connectBtn" class="primary" type="button">Разрешить доступ</button>
+      <button id="checkBtn" class="secondary" type="button" disabled>Проверить доступ к группе</button>
+      <button id="disconnectBtn" class="danger" type="button" disabled>Сбросить доступ</button>
+      <span id="authBadge" class="pill">не подключено</span>'''
+          new = '''      <button id="connectBtn" class="primary" type="button">Разрешить доступ</button>
+      <button id="communityBtn" class="secondary" type="button">Подключить сообщество</button>
+      <button id="checkBtn" class="secondary" type="button" disabled>Проверить доступ к группе</button>
+      <button id="disconnectBtn" class="danger" type="button" disabled>Сбросить доступ</button>
+      <span id="authBadge" class="pill">пользователь не подключён</span>
+      <span id="communityBadge" class="pill">сообщество не подключено</span>'''
+          if old in s:
+              s = s.replace(old,new,1)
+
+          old = '''    <div id="authStatus" class="status">Открой приложение внутри ВКонтакте и нажми «Разрешить доступ».</div>
+    <div class="security">VK-токен существует только в памяти открытой вкладки. В GitHub, cookies и localStorage он не записывается.</div>'''
+          new = '''    <div id="authStatus" class="status">Сначала нажми «Разрешить доступ», затем «Подключить сообщество».</div>
+    <div id="communityStatus" class="status">Для финального wall.post нужен токен самого сообщества. VK выдаст его через системное окно.</div>
+    <div class="security">Оба VK-токена существуют только в памяти открытой вкладки. В GitHub, cookies и localStorage они не записываются.</div>'''
+          if old in s:
+              s = s.replace(old,new,1)
+
+          s = s.replace("const VK_UPLOAD_PROXY = '/vk-upload';", "const VK_UPLOAD_PROXY = '/vk-upload';\nconst VK_PUBLISH_PROXY = '/vk-publish';", 1)
+          s = s.replace("let accessToken = null;", "let accessToken = null;\nlet communityToken = null;", 1)
+          s = s.replace("const connectBtn = $('connectBtn');", "const connectBtn = $('connectBtn');\nconst communityBtn = $('communityBtn');", 1)
+
+          s = s.replace("publishBtn.disabled = !(accessToken && count >= 1 && count <= MAX_PHOTOS);", "publishBtn.disabled = !(accessToken && communityToken && count >= 1 && count <= MAX_PHOTOS);", 1)
+
+          marker = "disconnectBtn.addEventListener('click',() => {"
+          community_block = r'''
+communityBtn.addEventListener('click',async () => {
+  const groupId = Number($('groupId').value);
+  if (!groupId) {
+    setStatus($('communityStatus'),'Не указан ID сообщества.','err');
+    return;
+  }
+  communityBtn.disabled = true;
+  setStatus($('communityStatus'),'VK запрашивает право управления сообществом…');
+  try {
+    const result = await bridge.send('VKWebAppGetCommunityToken',{
+      app_id:APP_ID,
+      group_id:groupId,
+      scope:'manage'
+    });
+    if (!result?.access_token) throw new Error('VK не вернул токен сообщества.');
+    communityToken = result.access_token;
+    $('communityBadge').textContent = 'сообщество подключено';
+    setStatus($('communityStatus'),`Cinema Moment подключено. Разрешения: ${result.scope || 'manage'}.`,'ok');
+    log('VK community token: OK');
+  } catch (error) {
+    communityToken = null;
+    $('communityBadge').textContent = 'сообщество не подключено';
+    setStatus($('communityStatus'),`Не удалось подключить сообщество: ${errorText(error)}`,'err');
+    log(`VK community auth ERROR: ${errorText(error)}`);
+  } finally {
+    communityBtn.disabled = false;
+    updatePublishState();
+  }
+});
+
+'''
+          if community_block.strip() not in s and marker in s:
+              s = s.replace(marker,community_block + marker,1)
+
+          s = s.replace("  accessToken = null;\n  $('authBadge').textContent = 'не подключено';", "  accessToken = null;\n  communityToken = null;\n  $('authBadge').textContent = 'пользователь не подключён';\n  $('communityBadge').textContent = 'сообщество не подключено';", 1)
+
+          s = s.replace("    if (!accessToken) throw new Error('Сначала разреши доступ к VK.');", "    if (!accessToken) throw new Error('Сначала разреши доступ к VK.');\n    if (!communityToken) throw new Error('Нажми «Подключить сообщество» в первом блоке.');", 1)
+
+          old_post = '''    log(`Вызываю wall.post: owner_id=${-Math.abs(groupId)}, from_group=1, publish_date=${publishDate}, attachments=${attachments.length}`);
+    const result = await api('wall.post',{
+      owner_id:-Math.abs(groupId),from_group:1,signed:0,
+      message,attachments:attachments.join(','),publish_date:publishDate
+    });
+
+    const postId = result?.post_id ?? result;'''
+          new_post = '''    log(`Вызываю server-side wall.post: owner_id=${-Math.abs(groupId)}, publish_date=${publishDate}, attachments=${attachments.length}`);
+    const body = new URLSearchParams();
+    body.set('access_token',communityToken);
+    body.set('owner_id',String(-Math.abs(groupId)));
+    body.set('from_group','1');
+    body.set('signed','0');
+    body.set('message',message);
+    body.set('attachments',attachments.join(','));
+    body.set('publish_date',String(publishDate));
+    body.set('v',VK_API_VERSION);
+    const publishResponse = await fetch(VK_PUBLISH_PROXY,{
+      method:'POST',
+      headers:{ 'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8' },
+      body
+    });
+    const publishText = await publishResponse.text();
+    if (!publishResponse.ok) throw new Error(`VK publish proxy HTTP ${publishResponse.status} — ${publishText.slice(0,300)}`);
+    let publishJson;
+    try { publishJson = JSON.parse(publishText); }
+    catch (_) { throw new Error(`VK publish proxy вернул не JSON: ${publishText.slice(0,300)}`); }
+    if (publishJson?.error) throw new Error(`VK wall.post · code=${publishJson.error.error_code} · ${publishJson.error.error_msg}`);
+    const result = publishJson?.response;
+    const postId = result?.post_id ?? result;'''
+          if old_post in s:
+              s = s.replace(old_post,new_post,1)
+          else:
+              raise SystemExit('wall.post block not found')
+
+          path.write_text(s,encoding='utf-8')
+
+      - name: Commit patched app
+        run: |
+          if git diff --quiet -- index.html; then
+            echo "No changes needed"
+            exit 0
+          fi
+          git config user.name "Cinema Moment Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html
+          git commit -m "Use community token for server-side wall.post"
+          git push

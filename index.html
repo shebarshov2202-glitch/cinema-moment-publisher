@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Cinema Moment Publisher</title>
+  <style>
+    :root {
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #1f2328;
+      background: #f3f4f6;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #f3f4f6; color: #1f2328; }
+    .app { max-width: 820px; margin: 0 auto; padding: 20px 14px 48px; }
+    .hero { margin-bottom: 16px; }
+    h1 { margin: 0 0 6px; font-size: 24px; }
+    h2 { margin: 0 0 14px; font-size: 18px; }
+    p { line-height: 1.45; }
+    .muted { color: #697386; font-size: 14px; }
+    .card { background: #fff; border: 1px solid #e1e5ea; border-radius: 16px; padding: 18px; margin: 12px 0; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .full { grid-column: 1 / -1; }
+    label { display: block; font-size: 13px; color: #5b6574; margin-bottom: 6px; }
+    input, textarea, button { font: inherit; }
+    input[type="text"], input[type="number"], input[type="date"], input[type="time"], textarea {
+      width: 100%; border: 1px solid #cfd6df; border-radius: 10px; padding: 10px 12px; background: #fff; color: #1f2328;
+    }
+    textarea { min-height: 120px; resize: vertical; }
+    input:focus, textarea:focus { outline: 2px solid #2688eb; outline-offset: 1px; border-color: #2688eb; }
+    button { border: 0; border-radius: 10px; padding: 10px 14px; cursor: pointer; }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    .primary { background: #2688eb; color: #fff; }
+    .secondary { background: #e9eef5; color: #1f2328; }
+    .danger { background: #fff0f0; color: #b42318; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .status { margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: #eef3f8; font-size: 14px; white-space: pre-wrap; }
+    .status.ok { background: #ecfdf3; color: #067647; }
+    .status.err { background: #fff1f0; color: #b42318; }
+    .security { font-size: 13px; color: #5b6574; margin-top: 10px; }
+    .photos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+    .photo-slot { min-height: 150px; border: 1px dashed #b9c2ce; border-radius: 12px; overflow: hidden; display: flex; align-items: center; justify-content: center; color: #7b8794; background: #f8fafc; }
+    .photo-slot img { width: 100%; height: 100%; min-height: 150px; object-fit: cover; display: block; }
+    .preview { background: #222; color: #fff; border-radius: 14px; overflow: hidden; }
+    .preview-images { display: grid; grid-template-columns: 1fr 1fr; min-height: 160px; }
+    .preview-images div { background: #333; display: flex; align-items: center; justify-content: center; color: #999; }
+    .preview-images img { width: 100%; height: 100%; min-height: 160px; object-fit: cover; }
+    .preview-text { padding: 16px; white-space: pre-wrap; line-height: 1.45; }
+    .pill { display: inline-block; padding: 5px 9px; border-radius: 999px; background: #eef3f8; color: #445; font-size: 12px; }
+    .log { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; max-height: 180px; overflow: auto; background: #111827; color: #d1d5db; padding: 12px; border-radius: 10px; white-space: pre-wrap; }
+    @media (max-width: 620px) {
+      .grid, .photos, .preview-images { grid-template-columns: 1fr; }
+      .full { grid-column: auto; }
+      .app { padding: 14px 10px 36px; }
+      h1 { font-size: 21px; }
+    }
+    @media (prefers-color-scheme: dark) {
+      :root, body { background: #111827; color: #f3f4f6; }
+      .card { background: #172033; border-color: #2c374b; }
+      .muted, label, .security { color: #aeb8c7; }
+      input[type="text"], input[type="number"], input[type="date"], input[type="time"], textarea { background: #0f172a; color: #f3f4f6; border-color: #475569; }
+      .secondary { background: #293548; color: #f3f4f6; }
+      .photo-slot { background: #101827; border-color: #475569; }
+      .status { background: #263247; color: #e5e7eb; }
+      .status.ok { background: #123c2e; color: #a7f3d0; }
+      .status.err { background: #451a1a; color: #fecaca; }
+      .pill { background: #293548; color: #e5e7eb; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="hero">
+      <h1>Cinema Moment Publisher</h1>
+      <div class="muted">Отложенные посты ВКонтакте · 2 изображения · время МСК</div>
+    </section>
+
+    <section class="card">
+      <h2>1. Подключение к VK</h2>
+      <div class="actions">
+        <button id="connectBtn" class="primary" type="button">Разрешить доступ</button>
+        <button id="checkBtn" class="secondary" type="button" disabled>Проверить доступ к группе</button>
+        <button id="disconnectBtn" class="danger" type="button" disabled>Сбросить доступ</button>
+        <span id="authBadge" class="pill">не подключено</span>
+      </div>
+      <div id="authStatus" class="status">Открой приложение внутри ВКонтакте и нажми «Разрешить доступ».</div>
+      <div class="security">Токен не записывается в GitHub, localStorage, cookies или файл. Он существует только в памяти открытой вкладки.</div>
+    </section>
+
+    <section class="card">
+      <h2>2. Пост</h2>
+      <div class="grid">
+        <div>
+          <label for="title">Название фильма</label>
+          <input id="title" type="text" value="Ешь, молись, люби">
+        </div>
+        <div>
+          <label for="year">Год</label>
+          <input id="year" type="number" min="1888" max="2100" value="2010">
+        </div>
+        <div class="full">
+          <label for="genre">Жанр</label>
+          <input id="genre" type="text" value="драма, мелодрама">
+        </div>
+        <div class="full">
+          <label for="description">Описание</label>
+          <textarea id="description" placeholder="Короткое описание фильма"></textarea>
+        </div>
+        <div>
+          <label for="postDate">Дата публикации</label>
+          <input id="postDate" type="date" value="2026-08-15">
+        </div>
+        <div>
+          <label for="postTime">Время публикации, МСК</label>
+          <input id="postTime" type="time" value="09:15">
+        </div>
+        <div class="full">
+          <label for="groupId">ID сообщества</label>
+          <input id="groupId" type="number" value="212580744">
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>3. Два изображения</h2>
+      <input id="photoInput" type="file" accept="image/jpeg,image/png,image/webp" multiple>
+      <div class="muted" style="margin-top:7px">Выбери ровно 2 файла. Порядок сохранится: первый файл будет первым в карусели.</div>
+      <div class="photos">
+        <div id="photo1" class="photo-slot">Фото 1</div>
+        <div id="photo2" class="photo-slot">Фото 2</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>4. Предпросмотр</h2>
+      <div class="preview">
+        <div class="preview-images">
+          <div id="previewImg1">Фото 1</div>
+          <div id="previewImg2">Фото 2</div>
+        </div>
+        <div id="previewText" class="preview-text"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>5. Поставить в отложку</h2>
+      <div class="actions">
+        <button id="publishBtn" class="primary" type="button" disabled>Создать отложенный пост</button>
+      </div>
+      <div id="publishStatus" class="status">Сначала подключи VK и выбери два изображения.</div>
+      <div id="log" class="log">Готово к работе.</div>
+    </section>
+  </main>
+
+  <script type="module">
+    import bridge from 'https://cdn.jsdelivr.net/npm/@vkontakte/vk-bridge@2.14.0/+esm';
+
+    const APP_ID = 54720636;
+    const API_VERSION = '5.199';
+    let accessToken = null;
+    let selectedFiles = [];
+
+    const $ = (id) => document.getElementById(id);
+    const connectBtn = $('connectBtn');
+    const checkBtn = $('checkBtn');
+    const disconnectBtn = $('disconnectBtn');
+    const publishBtn = $('publishBtn');
+    const photoInput = $('photoInput');
+
+    function log(message) {
+      const stamp = new Date().toLocaleTimeString('ru-RU');
+      $('log').textContent += `\n[${stamp}] ${message}`;
+      $('log').scrollTop = $('log').scrollHeight;
+    }
+
+    function setStatus(el, text, type = '') {
+      el.textContent = text;
+      el.className = `status${type ? ' ' + type : ''}`;
+    }
+
+    function errorText(error) {
+      if (!error) return 'Неизвестная ошибка';
+      const candidates = [
+        error?.error_data?.error_reason,
+        error?.error_data?.error_msg,
+        error?.error_msg,
+        error?.message,
+        error?.toString?.()
+      ];
+      return candidates.find(Boolean) || 'Неизвестная ошибка';
+    }
+
+    function buildMessage() {
+      const title = $('title').value.trim();
+      const year = $('year').value.trim();
+      const genre = $('genre').value.trim();
+      const description = $('description').value.trim();
+      const first = `${title}${year ? ` (${year})` : ''}`;
+      const genreLine = genre ? `Жанр: ${genre}` : '';
+      return [first, genreLine, description].filter(Boolean).join('\n\n');
+    }
+
+    function updatePreview() {
+      $('previewText').textContent = buildMessage() || 'Текст поста появится здесь.';
+    }
+
+    function updatePublishState() {
+      publishBtn.disabled = !(accessToken && selectedFiles.length === 2);
+    }
+
+    function moscowTimestamp(dateString, timeString) {
+      const [year, month, day] = dateString.split('-').map(Number);
+      const [hour, minute] = timeString.split(':').map(Number);
+      if (![year, month, day, hour, minute].every(Number.isFinite)) return NaN;
+      return Math.floor(Date.UTC(year, month - 1, day, hour - 3, minute, 0) / 1000);
+    }
+
+    async function api(method, params = {}) {
+      if (!accessToken) throw new Error('Нет пользовательского токена VK.');
+      const result = await bridge.send('VKWebAppCallAPIMethod', {
+        method,
+        params: {
+          ...params,
+          access_token: accessToken,
+          v: API_VERSION
+        }
+      });
+      return result?.response ?? result;
+    }
+
+    async function init() {
+      try {
+        await bridge.send('VKWebAppInit');
+        setStatus($('authStatus'), 'VK Bridge инициализирован. Можно запросить доступ.', 'ok');
+        log('VKWebAppInit: OK');
+      } catch (error) {
+        setStatus($('authStatus'), 'Страница открыта не внутри VK или VK Bridge недоступен. После настройки URL запускай приложение из ВКонтакте.', 'err');
+        log(`VKWebAppInit: ${errorText(error)}`);
+      }
+      updatePreview();
+    }
+
+    connectBtn.addEventListener('click', async () => {
+      connectBtn.disabled = true;
+      setStatus($('authStatus'), 'VK запрашивает разрешения photos, wall и groups…');
+      try {
+        const result = await bridge.send('VKWebAppGetAuthToken', {
+          app_id: APP_ID,
+          scope: 'photos,wall,groups'
+        });
+        if (!result?.access_token) throw new Error('VK не вернул access_token.');
+        accessToken = result.access_token;
+        $('authBadge').textContent = 'подключено';
+        checkBtn.disabled = false;
+        disconnectBtn.disabled = false;
+        setStatus($('authStatus'), `Доступ получен. Разрешения: ${result.scope || 'получены'}.`, 'ok');
+        log('Пользовательский токен получен и сохранён только в памяти вкладки.');
+      } catch (error) {
+        accessToken = null;
+        $('authBadge').textContent = 'не подключено';
+        setStatus($('authStatus'), `Не удалось получить доступ: ${errorText(error)}`, 'err');
+        log(`Авторизация: ${errorText(error)}`);
+      } finally {
+        connectBtn.disabled = false;
+        updatePublishState();
+      }
+    });
+
+    disconnectBtn.addEventListener('click', () => {
+      accessToken = null;
+      $('authBadge').textContent = 'не подключено';
+      checkBtn.disabled = true;
+      disconnectBtn.disabled = true;
+      setStatus($('authStatus'), 'Токен удалён из памяти вкладки. Для работы нужно снова разрешить доступ.');
+      log('Локальная сессия авторизации сброшена.');
+      updatePublishState();
+    });
+
+    checkBtn.addEventListener('click', async () => {
+      checkBtn.disabled = true;
+      const groupId = Number($('groupId').value);
+      try {
+        if (!groupId) throw new Error('Укажи ID сообщества.');
+        const response = await api('photos.getWallUploadServer', { group_id: groupId });
+        if (!response?.upload_url) throw new Error('VK не вернул upload_url.');
+        setStatus($('authStatus'), `Доступ к сообществу ${groupId} подтверждён: сервер загрузки фото получен.`, 'ok');
+        log(`Проверка photos.getWallUploadServer для group_id=${groupId}: OK`);
+      } catch (error) {
+        setStatus($('authStatus'), `Проверка не прошла: ${errorText(error)}`, 'err');
+        log(`Проверка группы: ${errorText(error)}`);
+      } finally {
+        checkBtn.disabled = !accessToken;
+      }
+    });
+
+    photoInput.addEventListener('change', () => {
+      const files = Array.from(photoInput.files || []);
+      if (files.length !== 2) {
+        selectedFiles = [];
+        setStatus($('publishStatus'), 'Нужно выбрать ровно 2 изображения.', 'err');
+      } else {
+        selectedFiles = files;
+        setStatus($('publishStatus'), 'Два изображения выбраны. Проверь текст, дату и время.');
+      }
+
+      ['photo1', 'photo2', 'previewImg1', 'previewImg2'].forEach((id, idx) => {
+        const el = $(id);
+        const file = selectedFiles[idx % 2];
+        el.innerHTML = '';
+        if (file) {
+          const img = document.createElement('img');
+          img.alt = `Предпросмотр ${idx % 2 + 1}`;
+          img.src = URL.createObjectURL(file);
+          el.appendChild(img);
+        } else {
+          el.textContent = idx % 2 === 0 ? 'Фото 1' : 'Фото 2';
+        }
+      });
+      updatePublishState();
+    });
+
+    ['title', 'year', 'genre', 'description'].forEach((id) => {
+      $(id).addEventListener('input', updatePreview);
+    });
+
+    async function uploadOnePhoto(file, groupId, index) {
+      log(`Фото ${index}: запрашиваю сервер загрузки…`);
+      const server = await api('photos.getWallUploadServer', { group_id: groupId });
+      if (!server?.upload_url) throw new Error(`Фото ${index}: VK не вернул upload_url.`);
+
+      const form = new FormData();
+      form.append('photo', file, file.name || `photo-${index}.jpg`);
+      log(`Фото ${index}: загружаю файл на сервер VK…`);
+      const uploadResponse = await fetch(server.upload_url, {
+        method: 'POST',
+        body: form
+      });
+      if (!uploadResponse.ok) throw new Error(`Фото ${index}: upload HTTP ${uploadResponse.status}.`);
+      const uploaded = await uploadResponse.json();
+      if (!uploaded?.photo || !uploaded?.hash || uploaded?.server == null) {
+        throw new Error(`Фото ${index}: сервер VK вернул неполные данные.`);
+      }
+
+      log(`Фото ${index}: сохраняю на стену сообщества…`);
+      const saved = await api('photos.saveWallPhoto', {
+        group_id: groupId,
+        photo: typeof uploaded.photo === 'string' ? uploaded.photo : JSON.stringify(uploaded.photo),
+        server: uploaded.server,
+        hash: uploaded.hash
+      });
+      const photo = Array.isArray(saved) ? saved[0] : (saved?.items?.[0] || saved?.[0]);
+      if (!photo?.owner_id || !photo?.id) throw new Error(`Фото ${index}: photos.saveWallPhoto не вернул ID.`);
+      const accessPart = photo.access_key ? `_${photo.access_key}` : '';
+      log(`Фото ${index}: OK, photo${photo.owner_id}_${photo.id}`);
+      return `photo${photo.owner_id}_${photo.id}${accessPart}`;
+    }
+
+    publishBtn.addEventListener('click', async () => {
+      const groupId = Number($('groupId').value);
+      const message = buildMessage();
+      const dateString = $('postDate').value;
+      const timeString = $('postTime').value;
+      const publishDate = moscowTimestamp(dateString, timeString);
+
+      try {
+        if (!accessToken) throw new Error('Сначала разреши доступ к VK.');
+        if (!groupId) throw new Error('Не указан ID сообщества.');
+        if (!message) throw new Error('Пост пустой.');
+        if (selectedFiles.length !== 2) throw new Error('Нужно выбрать ровно 2 изображения.');
+        if (!Number.isFinite(publishDate)) throw new Error('Проверь дату и время.');
+        if (publishDate <= Math.floor(Date.now() / 1000) + 60) throw new Error('Дата публикации должна быть в будущем.');
+
+        const humanDate = `${dateString.split('-').reverse().join('.')} ${timeString} МСК`;
+        const confirmed = window.confirm(`Создать отложенный пост в сообществе ${groupId} на ${humanDate}?\n\n${message.slice(0, 220)}${message.length > 220 ? '…' : ''}`);
+        if (!confirmed) return;
+
+        publishBtn.disabled = true;
+        connectBtn.disabled = true;
+        checkBtn.disabled = true;
+        photoInput.disabled = true;
+        setStatus($('publishStatus'), 'Идёт загрузка двух изображений и создание отложенной записи…');
+        log(`Начало публикации на ${humanDate}.`);
+
+        const attachments = [];
+        for (let i = 0; i < selectedFiles.length; i += 1) {
+          attachments.push(await uploadOnePhoto(selectedFiles[i], groupId, i + 1));
+        }
+
+        log('Оба фото загружены. Создаю wall.post…');
+        const result = await api('wall.post', {
+          owner_id: -Math.abs(groupId),
+          from_group: 1,
+          signed: 0,
+          message,
+          attachments: attachments.join(','),
+          publish_date: publishDate
+        });
+
+        const postId = result?.post_id ?? result;
+        setStatus($('publishStatus'), `Готово. Отложенный пост создан на ${humanDate}. ID записи: ${postId}.`, 'ok');
+        log(`wall.post: OK, post_id=${postId}`);
+      } catch (error) {
+        const text = errorText(error);
+        setStatus($('publishStatus'), `Не удалось создать пост: ${text}`, 'err');
+        log(`ОШИБКА: ${text}`);
+        if (/Failed to fetch|NetworkError|CORS/i.test(text)) {
+          log('Похоже, браузер заблокировал прямую отправку файла на upload_url VK. Если это подтвердится на тесте, добавим безопасный серверный прокси без хранения токена.');
+        }
+      } finally {
+        connectBtn.disabled = false;
+        checkBtn.disabled = !accessToken;
+        photoInput.disabled = false;
+        updatePublishState();
+      }
+    });
+
+    init();
+  </script>
+</body>
+</html>

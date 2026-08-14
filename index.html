@@ -589,18 +589,10 @@ async function remoteUrlToFile(url,index) {
   return new File([blob],`kinopoisk-${index}.jpg`,{ type:blob.type || 'image/jpeg' });
 }
 
-async function uploadOnePhoto(file,groupId,index) {
-  log(`Фото ${index}: сервер загрузки VK…`);
-  const server = await api('photos.getWallUploadServer',{ group_id:groupId });
-  if (!server?.upload_url) throw new Error(`Фото ${index}: VK не вернул upload_url.`);
-  const form = new FormData();
-  form.append('photo',file,file.name || `photo-${index}.jpg`);
-  form.append('upload_url',server.upload_url);
-  log(`Фото ${index}: отправляю через Cloudflare Worker…`);
-  const uploadResponse = await fetch(VK_UPLOAD_PROXY,{ method:'POST',body:form });
-  if (!uploadResponse.ok) throw new Error(`Фото ${index}: upload HTTP ${uploadResponse.status}.`);
-  const uploaded = await uploadResponse.json();
-  if (!uploaded?.photo || !uploaded?.hash || uploaded?.server == null) throw new Error(`Фото ${index}: сервер VK вернул неполные данные.`);
+async function saveUploadedPhoto(uploaded,groupId,index) {
+  if (!uploaded?.photo || !uploaded?.hash || uploaded?.server == null) {
+    throw new Error(`Фото ${index}: сервер VK вернул неполные данные.`);
+  }
   const saved = await api('photos.saveWallPhoto',{
     group_id:groupId,
     photo:typeof uploaded.photo === 'string' ? uploaded.photo : JSON.stringify(uploaded.photo),
@@ -610,6 +602,46 @@ async function uploadOnePhoto(file,groupId,index) {
   const photo = Array.isArray(saved) ? saved[0] : saved?.items?.[0];
   if (!photo?.owner_id || !photo?.id) throw new Error(`Фото ${index}: photos.saveWallPhoto не вернул ID.`);
   return `photo${photo.owner_id}_${photo.id}${photo.access_key ? '_'+photo.access_key : ''}`;
+}
+
+async function uploadRemotePhoto(item,groupId,index) {
+  log(`Фото ${index}: сервер загрузки VK…`);
+  const server = await api('photos.getWallUploadServer',{ group_id:groupId });
+  if (!server?.upload_url) throw new Error(`Фото ${index}: VK не вернул upload_url.`);
+
+  const body = new URLSearchParams();
+  body.set('upload_url',server.upload_url);
+  body.set('image_url',item.url);
+
+  log(`Фото ${index}: Worker сам получает кадр и отправляет его в VK…`);
+  const uploadResponse = await fetch(VK_UPLOAD_PROXY,{
+    method:'POST',
+    headers:{ 'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8' },
+    body
+  });
+  const responseText = await uploadResponse.text();
+  if (!uploadResponse.ok) throw new Error(`Фото ${index}: Worker HTTP ${uploadResponse.status} — ${responseText.slice(0,240)}`);
+  let uploaded;
+  try { uploaded = JSON.parse(responseText); }
+  catch (_) { throw new Error(`Фото ${index}: Worker вернул не JSON: ${responseText.slice(0,240)}`); }
+  return saveUploadedPhoto(uploaded,groupId,index);
+}
+
+async function uploadManualPhoto(file,groupId,index) {
+  log(`Фото ${index}: сервер загрузки VK…`);
+  const server = await api('photos.getWallUploadServer',{ group_id:groupId });
+  if (!server?.upload_url) throw new Error(`Фото ${index}: VK не вернул upload_url.`);
+  const form = new FormData();
+  form.append('photo',file,file.name || `photo-${index}.jpg`);
+  form.append('upload_url',server.upload_url);
+  log(`Фото ${index}: отправляю свой файл через Worker…`);
+  const uploadResponse = await fetch(VK_UPLOAD_PROXY,{ method:'POST',body:form });
+  const responseText = await uploadResponse.text();
+  if (!uploadResponse.ok) throw new Error(`Фото ${index}: Worker HTTP ${uploadResponse.status} — ${responseText.slice(0,240)}`);
+  let uploaded;
+  try { uploaded = JSON.parse(responseText); }
+  catch (_) { throw new Error(`Фото ${index}: Worker вернул не JSON: ${responseText.slice(0,240)}`); }
+  return saveUploadedPhoto(uploaded,groupId,index);
 }
 
 publishBtn.addEventListener('click',async () => {
@@ -636,16 +668,11 @@ publishBtn.addEventListener('click',async () => {
     setStatus($('publishStatus'),'Готовлю изображения в выбранном порядке и создаю отложенную запись…');
     log(`Публикация: ${humanDate}, photos=${totalSelected()}`);
 
-    const files = [];
+    const attachments = [];
     for (let index=0; index<selectedMedia.length; index++) {
       const item = selectedMedia[index];
-      if (item.kind === 'remote') files.push(await remoteUrlToFile(item.url,index+1));
-      else files.push(item.file);
-    }
-
-    const attachments = [];
-    for (let index=0; index<files.length; index++) {
-      attachments.push(await uploadOnePhoto(files[index],groupId,index+1));
+      if (item.kind === 'remote') attachments.push(await uploadRemotePhoto(item,groupId,index+1));
+      else attachments.push(await uploadManualPhoto(item.file,groupId,index+1));
     }
 
     const result = await api('wall.post',{
@@ -660,7 +687,7 @@ publishBtn.addEventListener('click',async () => {
     const text = errorText(error);
     setStatus($('publishStatus'),`Не удалось создать пост: ${text}`,'err');
     log(`PUBLISH ERROR: ${text}`);
-    if (/Failed to fetch|NetworkError|CORS/i.test(text)) log('Ошибка сети при обращении к Cloudflare Worker. Проверь его адрес и статус Deploy.');
+    if (/Failed to fetch|NetworkError|CORS/i.test(text)) log(`Сетевой сбой. origin=${location.origin}, proxy=${VK_UPLOAD_PROXY}`);
   } finally {
     connectBtn.disabled = false;
     importBtn.disabled = false;

@@ -191,6 +191,7 @@ import bridge from 'https://cdn.jsdelivr.net/npm/@vkontakte/vk-bridge@2.14.0/+es
 const APP_ID = 54720636;
 const VK_API_VERSION = '5.199';
 const KP_API = 'https://kinopoiskapiunofficial.tech/api';
+const VK_UPLOAD_PROXY = 'https://cinema-moment-vk-proxy.shebarshov2202.workers.dev/vk-upload';
 const MAX_PHOTOS = 7;
 let accessToken = null;
 let candidateRemote = [];
@@ -594,7 +595,9 @@ async function uploadOnePhoto(file,groupId,index) {
   if (!server?.upload_url) throw new Error(`Фото ${index}: VK не вернул upload_url.`);
   const form = new FormData();
   form.append('photo',file,file.name || `photo-${index}.jpg`);
-  const uploadResponse = await fetch(server.upload_url,{ method:'POST',body:form });
+  form.append('upload_url',server.upload_url);
+  log(`Фото ${index}: отправляю через Cloudflare Worker…`);
+  const uploadResponse = await fetch(VK_UPLOAD_PROXY,{ method:'POST',body:form });
   if (!uploadResponse.ok) throw new Error(`Фото ${index}: upload HTTP ${uploadResponse.status}.`);
   const uploaded = await uploadResponse.json();
   if (!uploaded?.photo || !uploaded?.hash || uploaded?.server == null) throw new Error(`Фото ${index}: сервер VK вернул неполные данные.`);
@@ -657,7 +660,7 @@ publishBtn.addEventListener('click',async () => {
     const text = errorText(error);
     setStatus($('publishStatus'),`Не удалось создать пост: ${text}`,'err');
     log(`PUBLISH ERROR: ${text}`);
-    if (/Failed to fetch|NetworkError|CORS/i.test(text)) log('Похоже на CORS. Тогда следующим шагом добавим серверный прокси, без установки программ на компьютер.');
+    if (/Failed to fetch|NetworkError|CORS/i.test(text)) log('Ошибка сети при обращении к Cloudflare Worker. Проверь его адрес и статус Deploy.');
   } finally {
     connectBtn.disabled = false;
     importBtn.disabled = false;

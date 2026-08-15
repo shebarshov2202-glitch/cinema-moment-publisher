@@ -87,15 +87,15 @@
     <h2>1. Подключение к VK</h2>
     <div class="actions">
       <button id="connectBtn" class="primary" type="button">Разрешить доступ</button>
-      <button id="communityBtn" class="secondary" type="button">Подключить сообщество</button>
+      <button id="communityBtn" class="secondary" type="button" style="display:none">Подключить сообщество</button>
       <button id="checkBtn" class="secondary" type="button" disabled>Проверить доступ к группе</button>
       <button id="disconnectBtn" class="danger" type="button" disabled>Сбросить доступ</button>
       <span id="authBadge" class="pill">пользователь не подключён</span>
-      <span id="communityBadge" class="pill">сообщество не подключено</span>
+      <span id="communityBadge" class="pill" style="display:none">сообщество не подключено</span>
     </div>
-    <div id="authStatus" class="status">Сначала нажми «Разрешить доступ», затем «Подключить сообщество».</div>
-    <div id="communityStatus" class="status">Для финального wall.post нужен токен самого сообщества. VK выдаст его через системное окно.</div>
-    <div class="security">Оба VK-токена существуют только в памяти открытой вкладки. В GitHub, cookies и localStorage они не записываются.</div>
+    <div id="authStatus" class="status">Нажми «Разрешить доступ». Этого достаточно и для загрузки фото, и для публикации.</div>
+    <div id="communityStatus" class="status" style="display:none">Токен сообщества не требуется.</div>
+    <div class="security">VK-токен существует только в памяти открытой вкладки. В GitHub, cookies и localStorage он не записывается.</div>
   </section>
 
   <section class="card">
@@ -263,7 +263,7 @@ function remotePosition(url) {
 
 function updatePublishState() {
   const count = totalSelected();
-  publishBtn.disabled = !(accessToken && communityToken && count >= 1 && count <= MAX_PHOTOS);
+  publishBtn.disabled = !(accessToken && count >= 1 && count <= MAX_PHOTOS);
 }
 
 function updatePhotoStatus() {
@@ -706,7 +706,6 @@ publishBtn.addEventListener('click',async () => {
 
   try {
     if (!accessToken) throw new Error('Сначала разреши доступ к VK.');
-    if (!communityToken) throw new Error('Нажми «Подключить сообщество» в первом блоке.');
     if (!groupId) throw new Error('Не указан ID сообщества.');
     if (!message) throw new Error('Пост пустой.');
     if (totalSelected() < 1 || totalSelected() > MAX_PHOTOS) throw new Error(`Нужно выбрать от 1 до ${MAX_PHOTOS} изображений.`);
@@ -729,9 +728,9 @@ publishBtn.addEventListener('click',async () => {
       else attachments.push(await uploadManualPhoto(item.file,groupId,index+1));
     }
 
-    log(`Вызываю server-side wall.post: owner_id=${-Math.abs(groupId)}, publish_date=${publishDate}, attachments=${attachments.length}`);
+    log(`Вызываю server-side wall.post с пользовательским токеном: owner_id=${-Math.abs(groupId)}, publish_date=${publishDate}, attachments=${attachments.length}`);
     const body = new URLSearchParams();
-    body.set('access_token',communityToken);
+    body.set('access_token',accessToken);
     body.set('owner_id',String(-Math.abs(groupId)));
     body.set('from_group','1');
     body.set('signed','0');

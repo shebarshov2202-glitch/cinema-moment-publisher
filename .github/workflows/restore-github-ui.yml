@@ -1,0 +1,50 @@
+name: Restore GitHub Pages UI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'restore-github-ui-trigger.txt'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Restore official bridge and absolute Worker endpoints
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+          pattern = r"const bridge = \(\(\) => \{.*?\n\}\)\(\);\n\nconst APP_ID"
+          replacement = "import bridge from 'https://cdn.jsdelivr.net/npm/@vkontakte/vk-bridge@2.14.0/+esm';\n\nconst APP_ID"
+          s2, n = re.subn(pattern, replacement, s, count=1, flags=re.S)
+          if n != 1:
+              raise SystemExit('inline bridge block not found')
+          worker = 'https://cinema-moment-vk-proxy.shebarshov2202.workers.dev'
+          s2 = s2.replace("const VK_UPLOAD_PROXY = '/vk-upload';", f"const VK_UPLOAD_PROXY = '{worker}/vk-upload';", 1)
+          s2 = s2.replace("const VK_PUBLISH_PROXY = '/vk-publish';", f"const VK_PUBLISH_PROXY = '{worker}/vk-publish';", 1)
+          p.write_text(s2, encoding='utf-8')
+      - name: Syntax check
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+          s=Path('index.html').read_text(encoding='utf-8')
+          m=re.search(r'<script type="module">(.*?)</script>',s,re.S)
+          Path('/tmp/app.mjs').write_text(m.group(1),encoding='utf-8')
+      - run: node --check /tmp/app.mjs
+      - name: Commit
+        run: |
+          git config user.name "Cinema Moment Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html
+          git commit -m "Serve UI from GitHub Pages and use Worker only as backend"
+          git push

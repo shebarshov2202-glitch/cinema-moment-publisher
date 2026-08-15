@@ -1,0 +1,773 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Cinema Moment Publisher</title>
+  <style>
+    :root { font-family: Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color:#1f2328; background:#f3f4f6; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:#f3f4f6; color:#1f2328; }
+    .app { max-width:920px; margin:0 auto; padding:20px 14px 48px; }
+    .hero { margin-bottom:16px; }
+    h1 { margin:0 0 6px; font-size:24px; }
+    h2 { margin:0 0 14px; font-size:18px; }
+    .muted { color:#697386; font-size:14px; line-height:1.45; }
+    .card { background:#fff; border:1px solid #e1e5ea; border-radius:16px; padding:18px; margin:12px 0; }
+    .grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .full { grid-column:1/-1; }
+    label { display:block; font-size:13px; color:#5b6574; margin-bottom:6px; }
+    input,textarea,button,select { font:inherit; }
+    input[type="text"],input[type="password"],input[type="number"],input[type="date"],input[type="time"],textarea,select {
+      width:100%; border:1px solid #cfd6df; border-radius:10px; padding:10px 12px; background:#fff; color:#1f2328;
+    }
+    textarea { min-height:130px; resize:vertical; }
+    input:focus,textarea:focus,select:focus { outline:2px solid #2688eb; outline-offset:1px; border-color:#2688eb; }
+    button { border:0; border-radius:10px; padding:10px 14px; cursor:pointer; }
+    button:disabled { opacity:.45; cursor:not-allowed; }
+    .primary { background:#2688eb; color:#fff; }
+    .secondary { background:#e9eef5; color:#1f2328; }
+    .danger { background:#fff0f0; color:#b42318; }
+    .actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .status { margin-top:12px; padding:10px 12px; border-radius:10px; background:#eef3f8; font-size:14px; white-space:pre-wrap; line-height:1.45; }
+    .status.ok { background:#ecfdf3; color:#067647; }
+    .status.err { background:#fff1f0; color:#b42318; }
+    .security { font-size:13px; color:#5b6574; margin-top:10px; line-height:1.45; }
+    .pill { display:inline-block; padding:5px 9px; border-radius:999px; background:#eef3f8; color:#445; font-size:12px; }
+    .gallery { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-top:12px; }
+    .shot { position:relative; min-height:132px; border:2px solid transparent; border-radius:12px; overflow:hidden; background:#eef1f5; cursor:pointer; }
+    .shot img { width:100%; height:132px; object-fit:cover; display:block; }
+    .shot.selected { border-color:#2688eb; box-shadow:0 0 0 2px rgba(38,136,235,.18); }
+    .shot-badge { position:absolute; top:7px; right:7px; min-width:25px; height:25px; padding:0 7px; border-radius:999px; background:rgba(0,0,0,.72); color:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; }
+    .preview { background:#222; color:#fff; border-radius:14px; overflow:hidden; }
+    .preview-images { display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:#111; }
+    .preview-card { position:relative; background:#2b2b2b; display:flex; flex-direction:column; min-width:0; }
+    .preview-frame { position:relative; background:#333; min-height:150px; overflow:hidden; }
+    .preview-frame img { width:100%; height:150px; object-fit:cover; display:block; }
+    .preview-number { position:absolute; top:8px; left:8px; min-width:28px; height:28px; padding:0 8px; border-radius:999px; background:rgba(0,0,0,.72); color:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; }
+    .preview-controls { display:flex; align-items:center; justify-content:center; gap:8px; padding:8px; background:#181818; }
+    .move-btn { min-width:42px; padding:7px 10px; border-radius:8px; background:#343434; color:#fff; font-size:18px; line-height:1; }
+    .remove-btn { min-width:42px; padding:7px 10px; border-radius:8px; background:#4a2323; color:#fff; font-size:16px; line-height:1; }
+    .preview-empty { min-height:150px; display:flex; align-items:center; justify-content:center; color:#999; background:#333; grid-column:1/-1; }
+    .preview-text { padding:16px; white-space:pre-wrap; line-height:1.45; }
+    .log { font-family:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:12px; max-height:190px; overflow:auto; background:#111827; color:#d1d5db; padding:12px; border-radius:10px; white-space:pre-wrap; }
+    .divider { height:1px; background:#e5e7eb; margin:16px 0; }
+    a { color:#2688eb; }
+    @media (max-width:700px) {
+      .grid { grid-template-columns:1fr; }
+      .full { grid-column:auto; }
+      .gallery { grid-template-columns:repeat(2,1fr); }
+      .preview-images { grid-template-columns:repeat(2,1fr); }
+      .app { padding:14px 10px 36px; }
+      h1 { font-size:21px; }
+    }
+    @media (prefers-color-scheme:dark) {
+      :root,body { background:#111827; color:#f3f4f6; }
+      .card { background:#172033; border-color:#2c374b; }
+      .muted,label,.security { color:#aeb8c7; }
+      input[type="text"],input[type="password"],input[type="number"],input[type="date"],input[type="time"],textarea,select { background:#0f172a; color:#f3f4f6; border-color:#475569; }
+      .secondary { background:#293548; color:#f3f4f6; }
+      .status { background:#263247; color:#e5e7eb; }
+      .status.ok { background:#123c2e; color:#a7f3d0; }
+      .status.err { background:#451a1a; color:#fecaca; }
+      .pill { background:#293548; color:#e5e7eb; }
+      .divider { background:#334155; }
+    }
+  </style>
+</head>
+<body>
+<main class="app">
+  <section class="hero">
+    <h1>Cinema Moment Publisher</h1>
+    <div class="muted">Ссылка Кинопоиска → данные и кадры → расставить порядок → отложенный пост VK · от 1 до 7 изображений · время МСК</div>
+  </section>
+
+  <section class="card">
+    <h2>1. Подключение к VK</h2>
+    <div class="actions">
+      <button id="connectBtn" class="primary" type="button">Разрешить доступ</button>
+      <button id="communityBtn" class="secondary" type="button" style="display:none">Подключить сообщество</button>
+      <button id="checkBtn" class="secondary" type="button" disabled>Проверить доступ к группе</button>
+      <button id="disconnectBtn" class="danger" type="button" disabled>Сбросить доступ</button>
+      <span id="authBadge" class="pill">пользователь не подключён</span>
+      <span id="communityBadge" class="pill" style="display:none">сообщество не подключено</span>
+    </div>
+    <div id="authStatus" class="status">Нажми «Разрешить доступ». Этого достаточно и для загрузки фото, и для публикации.</div>
+    <div id="communityStatus" class="status" style="display:none">Токен сообщества не требуется.</div>
+    <div class="security">VK-токен существует только в памяти открытой вкладки. В GitHub, cookies и localStorage он не записывается.</div>
+  </section>
+
+  <section class="card">
+    <h2>2. Загрузить фильм по ссылке Кинопоиска</h2>
+    <div class="grid">
+      <div class="full">
+        <label for="kpUrl">Ссылка на фильм или сериал</label>
+        <input id="kpUrl" type="text" placeholder="https://www.kinopoisk.ru/film/447301/">
+      </div>
+      <div>
+        <label for="kpKey">API-ключ Kinopoisk API Unofficial</label>
+        <input id="kpKey" type="password" autocomplete="off" placeholder="Вставляется один раз после открытия приложения">
+      </div>
+      <div>
+        <label for="autoPhotoCount">Сколько кадров выбрать автоматически</label>
+        <select id="autoPhotoCount">
+          <option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option>
+          <option value="5">5</option><option value="6">6</option><option value="7">7</option>
+        </select>
+      </div>
+    </div>
+    <div class="actions" style="margin-top:12px">
+      <button id="importBtn" class="primary" type="button">Загрузить фильм и кадры</button>
+      <a href="https://kinopoiskapiunofficial.tech/" target="_blank" rel="noopener">Получить API-ключ</a>
+    </div>
+    <div id="kpStatus" class="status">Приложение возьмёт Kinopoisk ID из ссылки, заполнит название, год, жанры и описание, затем найдёт кадры.</div>
+    <div class="security">Ключ Kinopoisk API тоже не сохраняется: после закрытия вкладки его нужно будет ввести снова.</div>
+  </section>
+
+  <section class="card">
+    <h2>3. Текст поста</h2>
+    <div class="grid">
+      <div>
+        <label for="title">Название фильма</label>
+        <input id="title" type="text">
+      </div>
+      <div>
+        <label for="year">Год</label>
+        <input id="year" type="number" min="1888" max="2100">
+      </div>
+      <div class="full">
+        <label for="genre">Жанр</label>
+        <input id="genre" type="text">
+      </div>
+      <div class="full">
+        <label for="description">Описание</label>
+        <textarea id="description" placeholder="Описание загрузится автоматически. При желании его можно отредактировать перед публикацией."></textarea>
+      </div>
+      <div>
+        <label for="postDate">Дата публикации</label>
+        <input id="postDate" type="date" value="2026-08-15">
+      </div>
+      <div>
+        <label for="postTime">Время, МСК</label>
+        <input id="postTime" type="time" value="09:15">
+      </div>
+      <div class="full">
+        <label for="groupId">ID сообщества</label>
+        <input id="groupId" type="number" value="212580744">
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>4. Кадры: выбери от 1 до 7</h2>
+    <div class="muted">Нажимай на найденные кадры, чтобы добавлять или убирать их. Их порядок для поста меняется ниже, в предпросмотре.</div>
+    <div id="remoteGallery" class="gallery"></div>
+    <div class="divider"></div>
+    <label for="photoInput">Или добавить свои файлы вручную (необязательно)</label>
+    <input id="photoInput" type="file" accept="image/jpeg,image/png,image/webp" multiple>
+    <div id="photoStatus" class="status">Пока изображения не выбраны.</div>
+  </section>
+
+  <section class="card">
+    <h2>5. Предпросмотр и порядок кадров</h2>
+    <div class="muted" style="margin-bottom:10px">Стрелки меняют реальный порядок вложений в VK. Кадр №1 будет первым в карусели.</div>
+    <div class="preview">
+      <div id="previewImages" class="preview-images"><div class="preview-empty">Изображения появятся здесь</div></div>
+      <div id="previewText" class="preview-text">Текст поста появится здесь.</div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>6. Поставить в отложку</h2>
+    <div class="actions">
+      <button id="publishBtn" class="primary" type="button" disabled>Создать отложенный пост</button>
+    </div>
+    <div id="publishStatus" class="status">Подключи VK и выбери хотя бы одно изображение.</div>
+    <div id="log" class="log">Готово к работе.</div>
+  </section>
+</main>
+
+<script type="module">
+import bridge from 'https://cdn.jsdelivr.net/npm/@vkontakte/vk-bridge@2.14.0/+esm';
+
+const APP_ID = 54720636;
+const VK_API_VERSION = '5.199';
+const KP_API = 'https://kinopoiskapiunofficial.tech/api';
+const VK_UPLOAD_PROXY = '/vk-upload';
+const VK_PUBLISH_PROXY = '/vk-publish';
+const MAX_PHOTOS = 7;
+let accessToken = null;
+let communityToken = null;
+let candidateRemote = [];
+let selectedMedia = [];
+
+const $ = (id) => document.getElementById(id);
+const connectBtn = $('connectBtn');
+const communityBtn = $('communityBtn');
+const checkBtn = $('checkBtn');
+const disconnectBtn = $('disconnectBtn');
+const publishBtn = $('publishBtn');
+const importBtn = $('importBtn');
+const photoInput = $('photoInput');
+
+function log(message) {
+  const stamp = new Date().toLocaleTimeString('ru-RU');
+  $('log').textContent += `\n[${stamp}] ${message}`;
+  $('log').scrollTop = $('log').scrollHeight;
+}
+
+function setStatus(el,text,type='') {
+  el.textContent = text;
+  el.className = `status${type ? ' '+type : ''}`;
+}
+
+function errorText(error) {
+  if (!error) return 'Неизвестная ошибка';
+  const data = error?.error_data || error || {};
+  const msg = data?.error_reason || data?.error_msg || error?.error_msg || error?.message || String(error);
+  const code = data?.error_code ?? error?.error_code;
+  const subcode = data?.error_subcode ?? data?.subcode ?? error?.error_subcode;
+  const method = error?.vk_method;
+  return [method ? `VK ${method}` : '', code != null ? `code=${code}` : '', subcode != null ? `subcode=${subcode}` : '', msg].filter(Boolean).join(' · ');
+}
+
+function buildMessage() {
+  const title = $('title').value.trim();
+  const year = $('year').value.trim();
+  const genre = $('genre').value.trim();
+  const description = $('description').value.trim();
+  const first = `${title}${year ? ` (${year})` : ''}`;
+  const genreLine = genre ? `Жанр: ${genre}` : '';
+  return [first,genreLine,description].filter(Boolean).join('\n\n');
+}
+
+function extractKinopoiskId(value) {
+  const text = (value || '').trim();
+  const match = text.match(/kinopoisk\.ru\/(?:film|series)\/(\d+)/i) || text.match(/(?:film|series)\/(\d+)/i);
+  return match ? Number(match[1]) : null;
+}
+
+function totalSelected() {
+  return selectedMedia.length;
+}
+
+function isRemoteSelected(url) {
+  return selectedMedia.some(item => item.kind === 'remote' && item.url === url);
+}
+
+function remotePosition(url) {
+  const index = selectedMedia.findIndex(item => item.kind === 'remote' && item.url === url);
+  return index >= 0 ? index + 1 : null;
+}
+
+function updatePublishState() {
+  const count = totalSelected();
+  publishBtn.disabled = !(accessToken && count >= 1 && count <= MAX_PHOTOS);
+}
+
+function updatePhotoStatus() {
+  const remoteCount = selectedMedia.filter(x => x.kind === 'remote').length;
+  const manualCount = selectedMedia.filter(x => x.kind === 'manual').length;
+  const total = totalSelected();
+  const text = `Выбрано: ${total} из ${MAX_PHOTOS} · из Кинопоиска: ${remoteCount} · своих: ${manualCount}`;
+  setStatus($('photoStatus'),text,total >= 1 && total <= MAX_PHOTOS ? 'ok' : total > MAX_PHOTOS ? 'err' : '');
+  updatePublishState();
+  renderGallery();
+  updatePreview();
+}
+
+function renderGallery() {
+  const gallery = $('remoteGallery');
+  gallery.innerHTML = '';
+  if (!candidateRemote.length) {
+    gallery.innerHTML = '<div class="muted">Кадры появятся после загрузки фильма.</div>';
+    return;
+  }
+
+  candidateRemote.forEach(item => {
+    const selected = isRemoteSelected(item.imageUrl);
+    const card = document.createElement('div');
+    card.className = `shot${selected ? ' selected' : ''}`;
+    card.title = selected ? 'Нажми, чтобы убрать кадр' : 'Нажми, чтобы добавить кадр';
+
+    const img = document.createElement('img');
+    img.src = item.previewUrl || item.imageUrl;
+    img.alt = 'Кадр из фильма';
+    img.loading = 'lazy';
+
+    const badge = document.createElement('div');
+    badge.className = 'shot-badge';
+    badge.textContent = selected ? remotePosition(item.imageUrl) : '+';
+
+    card.append(img,badge);
+    card.addEventListener('click',() => {
+      const existingIndex = selectedMedia.findIndex(x => x.kind === 'remote' && x.url === item.imageUrl);
+      if (existingIndex >= 0) {
+        selectedMedia.splice(existingIndex,1);
+      } else {
+        if (totalSelected() >= MAX_PHOTOS) {
+          setStatus($('photoStatus'),`Можно выбрать максимум ${MAX_PHOTOS} изображений.`,'err');
+          return;
+        }
+        selectedMedia.push({
+          kind:'remote',
+          url:item.imageUrl,
+          previewUrl:item.previewUrl || item.imageUrl,
+          key:`remote:${item.imageUrl}`
+        });
+      }
+      updatePhotoStatus();
+    });
+    gallery.appendChild(card);
+  });
+}
+
+function moveSelected(index,delta) {
+  const next = index + delta;
+  if (next < 0 || next >= selectedMedia.length) return;
+  const copy = [...selectedMedia];
+  [copy[index],copy[next]] = [copy[next],copy[index]];
+  selectedMedia = copy;
+  renderGallery();
+  updatePreview();
+  updatePhotoStatusTextOnly();
+}
+
+function removeSelected(index) {
+  selectedMedia.splice(index,1);
+  renderGallery();
+  updatePreview();
+  updatePhotoStatusTextOnly();
+}
+
+function updatePhotoStatusTextOnly() {
+  const remoteCount = selectedMedia.filter(x => x.kind === 'remote').length;
+  const manualCount = selectedMedia.filter(x => x.kind === 'manual').length;
+  const total = totalSelected();
+  setStatus($('photoStatus'),`Выбрано: ${total} из ${MAX_PHOTOS} · из Кинопоиска: ${remoteCount} · своих: ${manualCount}`,
+    total >= 1 && total <= MAX_PHOTOS ? 'ok' : total > MAX_PHOTOS ? 'err' : '');
+  updatePublishState();
+}
+
+function updatePreview() {
+  $('previewText').textContent = buildMessage() || 'Текст поста появится здесь.';
+  const wrap = $('previewImages');
+  wrap.innerHTML = '';
+
+  if (!selectedMedia.length) {
+    wrap.innerHTML = '<div class="preview-empty">Изображения появятся здесь</div>';
+    return;
+  }
+
+  selectedMedia.forEach((item,index) => {
+    const card = document.createElement('div');
+    card.className = 'preview-card';
+
+    const frame = document.createElement('div');
+    frame.className = 'preview-frame';
+
+    const img = document.createElement('img');
+    img.src = item.kind === 'remote' ? (item.previewUrl || item.url) : item.objectUrl;
+    img.alt = `Кадр ${index+1}`;
+
+    const number = document.createElement('div');
+    number.className = 'preview-number';
+    number.textContent = String(index+1);
+
+    frame.append(img,number);
+
+    const controls = document.createElement('div');
+    controls.className = 'preview-controls';
+
+    const left = document.createElement('button');
+    left.type = 'button';
+    left.className = 'move-btn';
+    left.textContent = '←';
+    left.title = 'Сдвинуть кадр влево';
+    left.disabled = index === 0;
+    left.addEventListener('click',() => moveSelected(index,-1));
+
+    const right = document.createElement('button');
+    right.type = 'button';
+    right.className = 'move-btn';
+    right.textContent = '→';
+    right.title = 'Сдвинуть кадр вправо';
+    right.disabled = index === selectedMedia.length - 1;
+    right.addEventListener('click',() => moveSelected(index,1));
+
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'remove-btn';
+    remove.textContent = '×';
+    remove.title = 'Убрать кадр из поста';
+    remove.addEventListener('click',() => removeSelected(index));
+
+    controls.append(left,right,remove);
+    card.append(frame,controls);
+    wrap.appendChild(card);
+  });
+}
+
+async function kpFetch(path,key) {
+  const response = await fetch(`${KP_API}${path}`,{ headers:{ 'X-API-KEY':key,'Accept':'application/json' } });
+  if (!response.ok) {
+    let detail = '';
+    try { detail = (await response.json())?.message || ''; } catch (_) {}
+    throw new Error(`Kinopoisk API: HTTP ${response.status}${detail ? ' — '+detail : ''}`);
+  }
+  return response.json();
+}
+
+async function loadImageType(id,key,type) {
+  try {
+    const data = await kpFetch(`/v2.2/films/${id}/images?type=${encodeURIComponent(type)}&page=1`,key);
+    return Array.isArray(data?.items) ? data.items : [];
+  } catch (error) {
+    log(`Изображения ${type}: ${errorText(error)}`);
+    return [];
+  }
+}
+
+importBtn.addEventListener('click',async () => {
+  const id = extractKinopoiskId($('kpUrl').value);
+  const key = $('kpKey').value.trim();
+  if (!id) {
+    setStatus($('kpStatus'),'Не удалось найти Kinopoisk ID. Вставь обычную ссылку вида kinopoisk.ru/film/123456/.','err');
+    return;
+  }
+  if (!key) {
+    setStatus($('kpStatus'),'Нужен API-ключ Kinopoisk API Unofficial. Получить его можно по ссылке рядом с кнопкой.','err');
+    return;
+  }
+
+  importBtn.disabled = true;
+  setStatus($('kpStatus'),`Загружаю фильм ${id}…`);
+  log(`Kinopoisk import: id=${id}`);
+  try {
+    const film = await kpFetch(`/v2.2/films/${id}`,key);
+    $('title').value = film?.nameRu || film?.nameOriginal || film?.nameEn || '';
+    $('year').value = film?.year || '';
+    $('genre').value = Array.isArray(film?.genres) ? film.genres.map(x => x.genre).filter(Boolean).join(', ') : '';
+    $('description').value = film?.description || film?.shortDescription || '';
+
+    setStatus($('kpStatus'),'Данные фильма получены. Теперь ищу кадры…');
+    const types = ['STILL','SCREENSHOT','PROMO','SHOOTING','POSTER'];
+    const all = [];
+    for (const type of types) {
+      if (all.length >= 20) break;
+      const items = await loadImageType(id,key,type);
+      for (const item of items) {
+        if (!item?.imageUrl) continue;
+        if (!all.some(x => x.imageUrl === item.imageUrl)) all.push(item);
+        if (all.length >= 20) break;
+      }
+    }
+    if (!all.length && film?.posterUrl) all.push({ imageUrl:film.posterUrl, previewUrl:film.posterUrlPreview || film.posterUrl });
+
+    candidateRemote = all.slice(0,20);
+    selectedMedia = [];
+    photoInput.value = '';
+    const count = Math.min(Number($('autoPhotoCount').value) || 2,MAX_PHOTOS,candidateRemote.length);
+    candidateRemote.slice(0,count).forEach(item => selectedMedia.push({
+      kind:'remote',
+      url:item.imageUrl,
+      previewUrl:item.previewUrl || item.imageUrl,
+      key:`remote:${item.imageUrl}`
+    }));
+
+    updatePhotoStatus();
+    setStatus($('kpStatus'),`Готово: ${$('title').value || 'фильм'} (${film?.year || 'год не указан'}). Найдено изображений: ${candidateRemote.length}. Автоматически выбрано: ${count}.`,'ok');
+    log(`Kinopoisk import: OK, images=${candidateRemote.length}`);
+  } catch (error) {
+    const text = errorText(error);
+    setStatus($('kpStatus'),`Не удалось загрузить данные: ${text}`,'err');
+    log(`Kinopoisk import ERROR: ${text}`);
+    if (/Failed to fetch|CORS|NetworkError/i.test(text)) log('Браузер, похоже, блокирует прямой запрос к Kinopoisk API. Если это подтвердится, добавим серверный прокси.');
+  } finally {
+    importBtn.disabled = false;
+  }
+});
+
+photoInput.addEventListener('change',() => {
+  const files = Array.from(photoInput.files || []);
+  const remoteItems = selectedMedia.filter(x => x.kind === 'remote');
+  const room = MAX_PHOTOS - remoteItems.length;
+  const accepted = files.slice(0,Math.max(0,room));
+
+  selectedMedia = [
+    ...remoteItems,
+    ...accepted.map((file,index) => ({
+      kind:'manual',
+      file,
+      objectUrl:URL.createObjectURL(file),
+      key:`manual:${Date.now()}:${index}:${file.name}`
+    }))
+  ];
+
+  if (files.length > accepted.length) {
+    setStatus($('photoStatus'),`Добавлено только ${accepted.length}: общий лимит — ${MAX_PHOTOS} изображений.`,'err');
+  }
+  updatePhotoStatus();
+});
+
+['title','year','genre','description'].forEach(id => $(id).addEventListener('input',updatePreview));
+
+function moscowTimestamp(dateString,timeString) {
+  const [year,month,day] = dateString.split('-').map(Number);
+  const [hour,minute] = timeString.split(':').map(Number);
+  if (![year,month,day,hour,minute].every(Number.isFinite)) return NaN;
+  return Math.floor(Date.UTC(year,month-1,day,hour-3,minute,0)/1000);
+}
+
+async function api(method,params={}) {
+  if (!accessToken) throw new Error('Нет пользовательского токена VK.');
+  try {
+    const result = await bridge.send('VKWebAppCallAPIMethod',{
+      method,
+      params:{ ...params,access_token:accessToken,v:VK_API_VERSION }
+    });
+    return result?.response ?? result;
+  } catch (error) {
+    try { error.vk_method = method; } catch (_) {}
+    log(`VK API ERROR ${method}: ${errorText(error)}`);
+    try { log(`VK RAW ${method}: ${JSON.stringify(error)}`); } catch (_) {}
+    throw error;
+  }
+}
+
+async function init() {
+  renderGallery();
+  updatePreview();
+  try {
+    await bridge.send('VKWebAppInit');
+    setStatus($('authStatus'),'VK Bridge инициализирован. Можно запросить доступ.','ok');
+    log('VKWebAppInit: OK');
+  } catch (error) {
+    setStatus($('authStatus'),'Страница открыта не внутри VK или VK Bridge недоступен. Запускай приложение через vk.com/app54720636.','err');
+    log(`VKWebAppInit: ${errorText(error)}`);
+  }
+}
+
+connectBtn.addEventListener('click',async () => {
+  connectBtn.disabled = true;
+  setStatus($('authStatus'),'VK запрашивает разрешения photos, wall и groups…');
+  try {
+    const result = await bridge.send('VKWebAppGetAuthToken',{ app_id:APP_ID,scope:'photos,wall,groups' });
+    if (!result?.access_token) throw new Error('VK не вернул access_token.');
+    accessToken = result.access_token;
+    $('authBadge').textContent = 'подключено';
+    checkBtn.disabled = false;
+    disconnectBtn.disabled = false;
+    setStatus($('authStatus'),`Доступ получен. Разрешения: ${result.scope || 'получены'}.`,'ok');
+    log('VK token: OK');
+  } catch (error) {
+    accessToken = null;
+    $('authBadge').textContent = 'не подключено';
+    setStatus($('authStatus'),`Не удалось получить доступ: ${errorText(error)}`,'err');
+    log(`VK auth ERROR: ${errorText(error)}`);
+  } finally {
+    connectBtn.disabled = false;
+    updatePublishState();
+  }
+});
+
+
+communityBtn.addEventListener('click',async () => {
+  const groupId = Number($('groupId').value);
+  if (!groupId) {
+    setStatus($('communityStatus'),'Не указан ID сообщества.','err');
+    return;
+  }
+  communityBtn.disabled = true;
+  setStatus($('communityStatus'),'VK запрашивает право управления сообществом…');
+  try {
+    const result = await bridge.send('VKWebAppGetCommunityToken',{
+      app_id:APP_ID,
+      group_id:groupId,
+      scope:'manage'
+    });
+    if (!result?.access_token) throw new Error('VK не вернул токен сообщества.');
+    communityToken = result.access_token;
+    $('communityBadge').textContent = 'сообщество подключено';
+    setStatus($('communityStatus'),`Cinema Moment подключено. Разрешения: ${result.scope || 'manage'}.`,'ok');
+    log('VK community token: OK');
+  } catch (error) {
+    communityToken = null;
+    $('communityBadge').textContent = 'сообщество не подключено';
+    setStatus($('communityStatus'),`Не удалось подключить сообщество: ${errorText(error)}`,'err');
+    log(`VK community auth ERROR: ${errorText(error)}`);
+  } finally {
+    communityBtn.disabled = false;
+    updatePublishState();
+  }
+});
+
+disconnectBtn.addEventListener('click',() => {
+  accessToken = null;
+  communityToken = null;
+  $('authBadge').textContent = 'пользователь не подключён';
+  $('communityBadge').textContent = 'сообщество не подключено';
+  checkBtn.disabled = true;
+  disconnectBtn.disabled = true;
+  setStatus($('authStatus'),'VK-токен удалён из памяти вкладки.');
+  updatePublishState();
+});
+
+checkBtn.addEventListener('click',async () => {
+  const groupId = Number($('groupId').value);
+  checkBtn.disabled = true;
+  try {
+    const response = await api('photos.getWallUploadServer',{ group_id:groupId });
+    if (!response?.upload_url) throw new Error('VK не вернул upload_url.');
+    setStatus($('authStatus'),`Доступ к сообществу ${groupId} подтверждён.`,'ok');
+    log(`VK group ${groupId}: OK`);
+  } catch (error) {
+    setStatus($('authStatus'),`Проверка не прошла: ${errorText(error)}`,'err');
+    log(`VK group ERROR: ${errorText(error)}`);
+  } finally {
+    checkBtn.disabled = !accessToken;
+  }
+});
+
+async function remoteUrlToFile(url,index) {
+  const proxyUrl = `https://wsrv.nl/?url=${encodeURIComponent(url)}&output=jpg&q=90`;
+  log(`Кадр ${index}: получаю изображение без скачивания на компьютер…`);
+  const response = await fetch(proxyUrl);
+  if (!response.ok) throw new Error(`Кадр ${index}: не удалось получить изображение, HTTP ${response.status}.`);
+  const blob = await response.blob();
+  if (!blob.type.startsWith('image/')) throw new Error(`Кадр ${index}: получен не файл изображения.`);
+  return new File([blob],`kinopoisk-${index}.jpg`,{ type:blob.type || 'image/jpeg' });
+}
+
+async function saveUploadedPhoto(uploaded,groupId,index) {
+  if (!uploaded?.photo || !uploaded?.hash || uploaded?.server == null) {
+    throw new Error(`Фото ${index}: сервер VK вернул неполные данные.`);
+  }
+  log(`Фото ${index}: сохраняю через photos.saveWallPhoto…`);
+  const saved = await api('photos.saveWallPhoto',{
+    group_id:groupId,
+    photo:typeof uploaded.photo === 'string' ? uploaded.photo : JSON.stringify(uploaded.photo),
+    server:uploaded.server,
+    hash:uploaded.hash
+  });
+  const photo = Array.isArray(saved) ? saved[0] : saved?.items?.[0];
+  if (!photo?.owner_id || !photo?.id) throw new Error(`Фото ${index}: photos.saveWallPhoto не вернул ID.`);
+  log(`Фото ${index}: photos.saveWallPhoto OK → photo${photo.owner_id}_${photo.id}`);
+  return `photo${photo.owner_id}_${photo.id}${photo.access_key ? '_'+photo.access_key : ''}`;
+}
+
+async function uploadRemotePhoto(item,groupId,index) {
+  log(`Фото ${index}: сервер загрузки VK…`);
+  const server = await api('photos.getWallUploadServer',{ group_id:groupId });
+  if (!server?.upload_url) throw new Error(`Фото ${index}: VK не вернул upload_url.`);
+
+  const body = new URLSearchParams();
+  body.set('upload_url',server.upload_url);
+  body.set('image_url',item.url);
+
+  log(`Фото ${index}: Worker сам получает кадр и отправляет его в VK…`);
+  const uploadResponse = await fetch(VK_UPLOAD_PROXY,{
+    method:'POST',
+    headers:{ 'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8' },
+    body
+  });
+  const responseText = await uploadResponse.text();
+  if (!uploadResponse.ok) throw new Error(`Фото ${index}: Worker HTTP ${uploadResponse.status} — ${responseText.slice(0,240)}`);
+  let uploaded;
+  try { uploaded = JSON.parse(responseText); }
+  catch (_) { throw new Error(`Фото ${index}: Worker вернул не JSON: ${responseText.slice(0,240)}`); }
+  return saveUploadedPhoto(uploaded,groupId,index);
+}
+
+async function uploadManualPhoto(file,groupId,index) {
+  log(`Фото ${index}: сервер загрузки VK…`);
+  const server = await api('photos.getWallUploadServer',{ group_id:groupId });
+  if (!server?.upload_url) throw new Error(`Фото ${index}: VK не вернул upload_url.`);
+  const form = new FormData();
+  form.append('photo',file,file.name || `photo-${index}.jpg`);
+  form.append('upload_url',server.upload_url);
+  log(`Фото ${index}: отправляю свой файл через Worker…`);
+  const uploadResponse = await fetch(VK_UPLOAD_PROXY,{ method:'POST',body:form });
+  const responseText = await uploadResponse.text();
+  if (!uploadResponse.ok) throw new Error(`Фото ${index}: Worker HTTP ${uploadResponse.status} — ${responseText.slice(0,240)}`);
+  let uploaded;
+  try { uploaded = JSON.parse(responseText); }
+  catch (_) { throw new Error(`Фото ${index}: Worker вернул не JSON: ${responseText.slice(0,240)}`); }
+  return saveUploadedPhoto(uploaded,groupId,index);
+}
+
+publishBtn.addEventListener('click',async () => {
+  const groupId = Number($('groupId').value);
+  const message = buildMessage();
+  const dateString = $('postDate').value;
+  const timeString = $('postTime').value;
+  const publishDate = moscowTimestamp(dateString,timeString);
+
+  try {
+    if (!accessToken) throw new Error('Сначала разреши доступ к VK.');
+    if (!groupId) throw new Error('Не указан ID сообщества.');
+    if (!message) throw new Error('Пост пустой.');
+    if (totalSelected() < 1 || totalSelected() > MAX_PHOTOS) throw new Error(`Нужно выбрать от 1 до ${MAX_PHOTOS} изображений.`);
+    if (!Number.isFinite(publishDate) || publishDate <= Math.floor(Date.now()/1000)+60) throw new Error('Дата публикации должна быть в будущем.');
+
+    const humanDate = `${dateString.split('-').reverse().join('.')} ${timeString} МСК`;
+    if (!window.confirm(`Создать отложенный пост на ${humanDate}?\n\nИзображений: ${totalSelected()}\n\n${message.slice(0,220)}${message.length>220?'…':''}`)) return;
+
+    publishBtn.disabled = true;
+    connectBtn.disabled = true;
+    importBtn.disabled = true;
+    photoInput.disabled = true;
+    setStatus($('publishStatus'),'Готовлю изображения в выбранном порядке и создаю отложенную запись…');
+    log(`Публикация: ${humanDate}, photos=${totalSelected()}`);
+
+    const attachments = [];
+    for (let index=0; index<selectedMedia.length; index++) {
+      const item = selectedMedia[index];
+      if (item.kind === 'remote') attachments.push(await uploadRemotePhoto(item,groupId,index+1));
+      else attachments.push(await uploadManualPhoto(item.file,groupId,index+1));
+    }
+
+    log(`Вызываю server-side wall.post с пользовательским токеном: owner_id=${-Math.abs(groupId)}, publish_date=${publishDate}, attachments=${attachments.length}`);
+    const body = new URLSearchParams();
+    body.set('access_token',accessToken);
+    body.set('owner_id',String(-Math.abs(groupId)));
+    body.set('from_group','1');
+    body.set('signed','0');
+    body.set('message',message);
+    body.set('attachments',attachments.join(','));
+    body.set('publish_date',String(publishDate));
+    body.set('v',VK_API_VERSION);
+    const publishResponse = await fetch(VK_PUBLISH_PROXY,{
+      method:'POST',
+      headers:{ 'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8' },
+      body
+    });
+    const publishText = await publishResponse.text();
+    if (!publishResponse.ok) throw new Error(`VK publish proxy HTTP ${publishResponse.status} — ${publishText.slice(0,300)}`);
+    let publishJson;
+    try { publishJson = JSON.parse(publishText); }
+    catch (_) { throw new Error(`VK publish proxy вернул не JSON: ${publishText.slice(0,300)}`); }
+    if (publishJson?.error) throw new Error(`VK wall.post · code=${publishJson.error.error_code} · ${publishJson.error.error_msg}`);
+    const result = publishJson?.response;
+    const postId = result?.post_id ?? result;
+    setStatus($('publishStatus'),`Готово. Отложенный пост создан на ${humanDate}. ID: ${postId}.`,'ok');
+    log(`wall.post: OK, post_id=${postId}`);
+  } catch (error) {
+    const text = errorText(error);
+    setStatus($('publishStatus'),`Не удалось создать пост: ${text}`,'err');
+    log(`PUBLISH ERROR: ${text}`);
+    if (/Failed to fetch|NetworkError|CORS/i.test(text)) log(`Сетевой сбой same-origin. origin=${location.origin}, proxy=${VK_UPLOAD_PROXY}`);
+  } finally {
+    connectBtn.disabled = false;
+    importBtn.disabled = false;
+    photoInput.disabled = false;
+    checkBtn.disabled = !accessToken;
+    updatePublishState();
+  }
+});
+
+init();
+</script>
+</body>
+</html>

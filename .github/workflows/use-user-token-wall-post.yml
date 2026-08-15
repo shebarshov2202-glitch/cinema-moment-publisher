@@ -1,0 +1,59 @@
+name: Use user token for wall.post
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'user-token-publish-trigger.txt'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch publisher
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+
+          replacements = [
+            ('<button id="communityBtn" class="secondary" type="button">Подключить сообщество</button>', '<button id="communityBtn" class="secondary" type="button" style="display:none">Подключить сообщество</button>'),
+            ('<span id="communityBadge" class="pill">сообщество не подключено</span>', '<span id="communityBadge" class="pill" style="display:none">сообщество не подключено</span>'),
+            ('<div id="authStatus" class="status">Сначала нажми «Разрешить доступ», затем «Подключить сообщество».</div>', '<div id="authStatus" class="status">Нажми «Разрешить доступ». Этого достаточно и для загрузки фото, и для публикации.</div>'),
+            ('<div id="communityStatus" class="status">Для финального wall.post нужен токен самого сообщества. VK выдаст его через системное окно.</div>', '<div id="communityStatus" class="status" style="display:none">Токен сообщества не требуется.</div>'),
+            ('<div class="security">Оба VK-токена существуют только в памяти открытой вкладки. В GitHub, cookies и localStorage они не записываются.</div>', '<div class="security">VK-токен существует только в памяти открытой вкладки. В GitHub, cookies и localStorage он не записывается.</div>'),
+            ('publishBtn.disabled = !(accessToken && communityToken && count >= 1 && count <= MAX_PHOTOS);', 'publishBtn.disabled = !(accessToken && count >= 1 && count <= MAX_PHOTOS);'),
+            ("    if (!communityToken) throw new Error('Нажми «Подключить сообщество» в первом блоке.');\n", ''),
+            ("    body.set('access_token',communityToken);", "    body.set('access_token',accessToken);"),
+            ('log(`Вызываю server-side wall.post: owner_id=${-Math.abs(groupId)}, publish_date=${publishDate}, attachments=${attachments.length}`);', 'log(`Вызываю server-side wall.post с пользовательским токеном: owner_id=${-Math.abs(groupId)}, publish_date=${publishDate}, attachments=${attachments.length}`);')
+          ]
+
+          for old, new in replacements:
+            if old not in s:
+              raise SystemExit(f'pattern not found: {old[:100]}')
+            s = s.replace(old, new, 1)
+
+          p.write_text(s, encoding='utf-8')
+      - name: Syntax check
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+          s = Path('index.html').read_text(encoding='utf-8')
+          m = re.search(r'<script type="module">(.*?)</script>', s, re.S)
+          Path('/tmp/app.mjs').write_text(m.group(1), encoding='utf-8')
+      - run: node --check /tmp/app.mjs
+      - name: Commit
+        run: |
+          git config user.name "Cinema Moment Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html
+          git commit -m "Use user token for server-side wall.post"
+          git push

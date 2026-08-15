@@ -1,0 +1,36 @@
+name: Fix community button HTML
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'fix-community-button-trigger.txt'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fix typo
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace('<buttton id="communityBtn"','<button id="communityBtn"')
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Commit
+        run: |
+          git config user.name "Cinema Moment Bot"
+          git config user.email "actions@users.noreply.github.com"
+          if git diff --quiet -- index.html; then
+            echo "Nothing to fix"
+            exit 0
+          fi
+          git add index.html
+          git commit -m "Fix community button markup"
+          git push

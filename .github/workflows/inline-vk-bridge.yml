@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'inline-bridge-trigger.txt'
+      - 'inline-bridge-trigger-2.txt'
 
 permissions:
   contents: write
@@ -20,98 +20,28 @@ jobs:
         shell: python
         run: |
           from pathlib import Path
+          import base64
           p = Path('index.html')
           s = p.read_text(encoding='utf-8')
           old = "import bridge from 'https://cdn.jsdelivr.net/npm/@vkontakte/vk-bridge@2.14.0/+esm';"
-          new = r'''const bridge = (() => {
-  const isClient = typeof window !== 'undefined';
-  const android = isClient ? window.AndroidBridge : null;
-  const ios = isClient ? window.webkit?.messageHandlers : null;
-  const isAndroid = !!android;
-  const isIOS = !!(ios?.VKWebAppClose || ios?.VKWebAppInit);
-  const isWeb = isClient && !isAndroid && !isIOS;
-  let webFrameId;
-  let seq = 0;
-  const pending = new Map();
-
-  function rawSend(method, params = {}) {
-    if (isAndroid && typeof android?.[method] === 'function') {
-      android[method](JSON.stringify(params));
-      return;
-    }
-    if (isIOS && typeof ios?.[method]?.postMessage === 'function') {
-      ios[method].postMessage(params);
-      return;
-    }
-    if (isWeb && window.parent && typeof window.parent.postMessage === 'function') {
-      window.parent.postMessage({
-        handler: method,
-        params,
-        type: 'vk-connect',
-        webFrameId,
-        connectVersion: '2.14.0'
-      }, '*');
-      return;
-    }
-    throw new Error('VK Bridge runtime недоступен');
-  }
-
-  function handlePayload(payload) {
-    if (!payload) return;
-    if (typeof payload === 'string') {
-      try { payload = JSON.parse(payload); } catch (_) { return; }
-    }
-    const type = payload.type || payload?.detail?.type;
-    const data = payload.data || payload?.detail?.data;
-    const frameId = payload.frameId;
-    if (type === 'VKWebAppSettings') {
-      webFrameId = frameId;
-      return;
-    }
-    if (!data || typeof data !== 'object') return;
-    const requestId = data.request_id;
-    if (!requestId || !pending.has(requestId)) return;
-    const { request_id, ...rest } = data;
-    const ctl = pending.get(requestId);
-    pending.delete(requestId);
-    if ('error_type' in rest) ctl.reject(rest);
-    else ctl.resolve(rest);
-  }
-
-  if (isClient) {
-    window.addEventListener('message', e => handlePayload(e.data));
-    window.addEventListener('VKWebAppEvent', e => handlePayload(e.detail || e));
-    document.addEventListener('VKWebAppEvent', e => handlePayload(e.detail || e));
-  }
-
-  return {
-    send(method, props = {}) {
-      return new Promise((resolve, reject) => {
-        const requestId = props.request_id || `${++seq}_cinema_moment`;
-        pending.set(requestId, { resolve, reject });
-        try {
-          rawSend(method, { ...props, request_id: requestId });
-        } catch (error) {
-          pending.delete(requestId);
-          reject(error);
-        }
-      });
-    }
-  };
-})();'''
+          encoded = "Y29uc3QgYnJpZGdlID0gKCgpID0+IHsKICBjb25zdCBpc0NsaWVudCA9IHR5cGVvZiB3aW5kb3cgIT09ICd1bmRlZmluZWQnOwogIGNvbnN0IGFuZHJvaWQgPSBpc0NsaWVudCA/IHdpbmRvdy5BbmRyb2lkQnJpZGdlIDogbnVsbDsKICBjb25zdCBpb3MgPSBpc0NsaWVudCA/IHdpbmRvdy53ZWJraXQ/Lm1lc3NhZ2VIYW5kbGVycyA6IG51bGw7CiAgY29uc3QgaXNBbmRyb2lkID0gISFhbmRyb2lkOwogIGNvbnN0IGlzSU9TID0gISEoaW9zPy5WS1dlYkFwcENsb3NlIHx8IGlvcz8uVktXZWJBcHBJbml0KTsKICBjb25zdCBpc1dlYiA9IGlzQ2xpZW50ICYmICFpc0FuZHJvaWQgJiYgIWlzSU9TOwogIGxldCB3ZWJGcmFtZUlkOwogIGxldCBzZXEgPSAwOwogIGNvbnN0IHBlbmRpbmcgPSBuZXcgTWFwKCk7CgogIGZ1bmN0aW9uIHJhd1NlbmQobWV0aG9kLCBwYXJhbXMgPSB7fSkgewogICAgaWYgKGlzQW5kcm9pZCAmJiB0eXBlb2YgYW5kcm9pZD8uW21ldGhvZF0gPT09ICdmdW5jdGlvbicpIHsKICAgICAgYW5kcm9pZFttZXRob2RdKEpTT04uc3RyaW5naWZ5KHBhcmFtcykpOwogICAgICByZXR1cm47CiAgICB9CiAgICBpZiAoaXNJT1MgJiYgdHlwZW9mIGlvcz8uW21ldGhvZF0/LnBvc3RNZXNzYWdlID09PSAnZnVuY3Rpb24nKSB7CiAgICAgIGlvc1ttZXRob2RdLnBvc3RNZXNzYWdlKHBhcmFtcyk7CiAgICAgIHJldHVybjsKICAgIH0KICAgIGlmIChpc1dlYiAmJiB3aW5kb3cucGFyZW50ICYmIHR5cGVvZiB3aW5kb3cucGFyZW50LnBvc3RNZXNzYWdlID09PSAnZnVuY3Rpb24nKSB7CiAgICAgIHdpbmRvdy5wYXJlbnQucG9zdE1lc3NhZ2UoewogICAgICAgIGhhbmRsZXI6IG1ldGhvZCwKICAgICAgICBwYXJhbXMsCiAgICAgICAgdHlwZTogJ3ZrLWNvbm5lY3QnLAogICAgICAgIHdlYkZyYW1lSWQsCiAgICAgICAgY29ubmVjdFZlcnNpb246ICcyLjE0LjAnCiAgICAgIH0sICcqJyk7CiAgICAgIHJldHVybjsKICAgIH0KICAgIHRocm93IG5ldyBFcnJvcignVksgQnJpZGdlIHJ1bnRpbWUg0L3QtdC00L7RgdGC0YPQv9C10L0nKTsKICB9CgogIGZ1bmN0aW9uIGhhbmRsZVBheWxvYWQocGF5bG9hZCkgewogICAgaWYgKCFwYXlsb2FkKSByZXR1cm47CiAgICBpZiAodHlwZW9mIHBheWxvYWQgPT09ICdzdHJpbmcnKSB7CiAgICAgIHRyeSB7IHBheWxvYWQgPSBKU09OLnBhcnNlKHBheWxvYWQpOyB9IGNhdGNoIChfKSB7IHJldHVybjsgfQogICAgfQogICAgY29uc3QgdHlwZSA9IHBheWxvYWQudHlwZSB8fCBwYXlsb2FkPy5kZXRhaWw/LnR5cGU7CiAgICBjb25zdCBkYXRhID0gcGF5bG9hZC5kYXRhIHx8IHBheWxvYWQ/LmRldGFpbD8uZGF0YTsKICAgIGNvbnN0IGZyYW1lSWQgPSBwYXlsb2FkLmZyYW1lSWQ7CiAgICBpZiAodHlwZSA9PT0gJ1ZLV2ViQXBwU2V0dGluZ3MnKSB7CiAgICAgIHdlYkZyYW1lSWQgPSBmcmFtZUlkOwogICAgICByZXR1cm47CiAgICB9CiAgICBpZiAoIWRhdGEgfHwgdHlwZW9mIGRhdGEgIT09ICdvYmplY3QnKSByZXR1cm47CiAgICBjb25zdCByZXF1ZXN0SWQgPSBkYXRhLnJlcXVlc3RfaWQ7CiAgICBpZiAoIXJlcXVlc3RJZCB8fCAhcGVuZGluZy5oYXMocmVxdWVzdElkKSkgcmV0dXJuOwogICAgY29uc3QgeyByZXF1ZXN0X2lkLCAuLi5yZXN0IH0gPSBkYXRhOwogICAgY29uc3QgY3RsID0gcGVuZGluZy5nZXQocmVxdWVzdElkKTsKICAgIHBlbmRpbmcuZGVsZXRlKHJlcXVlc3RJZCk7CiAgICBpZiAoJ2Vycm9yX3R5cGUnIGluIHJlc3QpIGN0bC5yZWplY3QocmVzdCk7CiAgICBlbHNlIGN0bC5yZXNvbHZlKHJlc3QpOwogIH0KCiAgaWYgKGlzQ2xpZW50KSB7CiAgICB3aW5kb3cuYWRkRXZlbnRMaXN0ZW5lcignbWVzc2FnZScsIGUgPT4gaGFuZGxlUGF5bG9hZChlLmRhdGEpKTsKICAgIHdpbmRvdy5hZGRFdmVudExpc3RlbmVyKCdWS1dlYkFwcEV2ZW50JywgZSA9PiBoYW5kbGVQYXlsb2FkKGUuZGV0YWlsIHx8IGUpKTsKICAgIGRvY3VtZW50LmFkZEV2ZW50TGlzdGVuZXIoJ1ZLV2ViQXBwRXZlbnQnLCBlID0+IGhhbmRsZVBheWxvYWQoZS5kZXRhaWwgfHwgZSkpOwogIH0KCiAgcmV0dXJuIHsKICAgIHNlbmQobWV0aG9kLCBwcm9wcyA9IHt9KSB7CiAgICAgIHJldHVybiBuZXcgUHJvbWlzZSgocmVzb2x2ZSwgcmVqZWN0KSA9PiB7CiAgICAgICAgY29uc3QgcmVxdWVzdElkID0gcHJvcHMucmVxdWVzdF9pZCB8fCBgJHsrK3NlcX1fY2luZW1hX21vbWVudGA7CiAgICAgICAgcGVuZGluZy5zZXQocmVxdWVzdElkLCB7IHJlc29sdmUsIHJlamVjdCB9KTsKICAgICAgICB0cnkgewogICAgICAgICAgcmF3U2VuZChtZXRob2QsIHsgLi4ucHJvcHMsIHJlcXVlc3RfaWQ6IHJlcXVlc3RJZCB9KTsKICAgICAgICB9IGNhdGNoIChlcnJvcikgewogICAgICAgICAgcGVuZGluZy5kZWxldGUocmVxdWVzdElkKTsKICAgICAgICAgIHJlamVjdChlcnJvcik7CiAgICAgICAgfQogICAgICB9KTsKICAgIH0KICB9Owp9KSgpOw=="
+          new = base64.b64decode(encoded).decode('utf-8')
           if old not in s:
               raise SystemExit('external bridge import not found')
           s = s.replace(old, new, 1)
           p.write_text(s, encoding='utf-8')
-      - name: Syntax check
+      - name: Extract module
         shell: python
         run: |
           from pathlib import Path
           import re
-          s=Path('index.html').read_text(encoding='utf-8')
-          m=re.search(r'<script type="module">(.*?)</script>',s,re.S)
-          Path('/tmp/app.mjs').write_text(m.group(1),encoding='utf-8')
-      - run: node --check /tmp/app.mjs
+          s = Path('index.html').read_text(encoding='utf-8')
+          m = re.search(r'<script type="module">(.*?)</script>', s, re.S)
+          if not m:
+              raise SystemExit('module not found')
+          Path('/tmp/app.mjs').write_text(m.group(1), encoding='utf-8')
+      - name: Syntax check
+        run: node --check /tmp/app.mjs
       - name: Commit
         run: |
           git config user.name "Cinema Moment Bot"

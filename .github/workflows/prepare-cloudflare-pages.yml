@@ -1,0 +1,42 @@
+name: Prepare Cloudflare Pages bundle
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Cloudflare Pages static copy
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          src = Path('index.html').read_text(encoding='utf-8')
+          src = src.replace(
+              "const VK_UPLOAD_PROXY = 'https://cinema-moment-vk-proxy.shebarshov2202.workers.dev/vk-upload';",
+              "const VK_UPLOAD_PROXY = '/vk-upload';"
+          )
+          src = src.replace(
+              "const VK_PUBLISH_PROXY = 'https://cinema-moment-vk-proxy.shebarshov2202.workers.dev/vk-publish';",
+              "const VK_PUBLISH_PROXY = '/vk-publish';"
+          )
+          out = Path('cloudflare-pages/public/index.html')
+          out.parent.mkdir(parents=True, exist_ok=True)
+          out.write_text(src, encoding='utf-8')
+          PY
+      - name: Commit bundle if changed
+        run: |
+          git config user.name "Cinema Moment Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add cloudflare-pages/public/index.html
+          if git diff --cached --quiet; then
+            echo "Cloudflare Pages bundle is already current"
+            exit 0
+          fi
+          git commit -m "Refresh Cloudflare Pages bundle"
+          git push

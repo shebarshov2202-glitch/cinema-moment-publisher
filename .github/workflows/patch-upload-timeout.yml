@@ -1,0 +1,73 @@
+name: Add upload timeout
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'upload-timeout-trigger.txt'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch index.html
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('index.html')
+          s = path.read_text(encoding='utf-8')
+
+          marker = "async function uploadRemotePhoto(item,groupId,index) {"
+          helper = r'''
+async function fetchWithTimeout(url,options={},timeoutMs=25000,label='Запрос') {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(),timeoutMs);
+  try {
+    return await fetch(url,{ ...options,signal:controller.signal });
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new Error(`${label}: превышено время ожидания ${Math.round(timeoutMs/1000)} сек.`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+'''
+          if 'async function fetchWithTimeout(' not in s:
+              if marker not in s:
+                  raise SystemExit('uploadRemotePhoto marker not found')
+              s = s.replace(marker,helper + marker,1)
+
+          old_remote = """  const uploadResponse = await fetch(VK_UPLOAD_PROXY,{\n    method:'POST',\n    headers:{ 'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8' },\n    body\n  });"""
+          new_remote = """  const uploadResponse = await fetchWithTimeout(VK_UPLOAD_PROXY,{\n    method:'POST',\n    headers:{ 'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8' },\n    body\n  },25000,`Фото ${index}`);"""
+          if old_remote in s:
+              s = s.replace(old_remote,new_remote,1)
+
+          old_manual = "const uploadResponse = await fetch(VK_UPLOAD_PROXY,{ method:'POST',body:form });"
+          new_manual = "const uploadResponse = await fetchWithTimeout(VK_UPLOAD_PROXY,{ method:'POST',body:form },25000,`Фото ${index}`);"
+          if old_manual in s:
+              s = s.replace(old_manual,new_manual,1)
+
+          path.write_text(s,encoding='utf-8')
+
+      - name: Commit patched app
+        run: |
+          if git diff --quiet -- index.html; then
+            echo "No changes needed"
+            exit 0
+          fi
+          git config user.name "Cinema Moment Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html
+          git commit -m "Add timeout for stuck image uploads"
+          git push

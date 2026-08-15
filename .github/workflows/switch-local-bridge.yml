@@ -1,0 +1,36 @@
+name: Switch to local VK Bridge
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'switch-local-bridge-trigger.txt'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch import
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+          old = "import bridge from 'https://cdn.jsdelivr.net/npm/@vkontakte/vk-bridge@2.14.0/+esm';"
+          new = "import bridge from './vk-bridge-local.js';"
+          if old not in s:
+              raise SystemExit('external import not found')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8')
+      - name: Commit
+        run: |
+          git config user.name "Cinema Moment Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html
+          git commit -m "Use local VK Bridge module"
+          git push

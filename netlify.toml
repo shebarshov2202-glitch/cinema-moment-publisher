@@ -5,6 +5,15 @@
 [functions]
   directory = "netlify/functions"
 
+[images]
+  remote_images = [
+    "https:\\/\\/(?:[^\\/]+\\.)?kinopoiskapiunofficial\\.tech\\/.*",
+    "https:\\/\\/(?:[^\\/]+\\.)?kinopoisk\\.ru\\/.*",
+    "https:\\/\\/(?:[^\\/]+\\.)?yandex\\.net\\/.*",
+    "https:\\/\\/(?:[^\\/]+\\.)?yandex\\.ru\\/.*",
+    "https:\\/\\/(?:[^\\/]+\\.)?kinopoisk\\.cloud\\/.*"
+  ]
+
 [[headers]]
   for = "/*"
   [headers.values]

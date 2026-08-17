@@ -728,7 +728,7 @@ publishBtn.addEventListener('click',async () => {
       else attachments.push(await uploadManualPhoto(item.file,groupId,index+1));
     }
 
-    log(`Вызываю server-side wall.post с пользовательским токеном: owner_id=${-Math.abs(groupId)}, publish_date=${publishDate}, attachments=${attachments.length}`);
+    log(`Вызываю wall.post напрямую из браузера: owner_id=${-Math.abs(groupId)}, publish_date=${publishDate}, attachments=${attachments.length}`);
     const body = new URLSearchParams();
     body.set('access_token',accessToken);
     body.set('owner_id',String(-Math.abs(groupId)));
@@ -738,16 +738,30 @@ publishBtn.addEventListener('click',async () => {
     body.set('attachments',attachments.join(','));
     body.set('publish_date',String(publishDate));
     body.set('v',VK_API_VERSION);
-    const publishResponse = await fetch(VK_PUBLISH_PROXY,{
-      method:'POST',
-      headers:{ 'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8' },
-      body
-    });
+
+    const controller = new AbortController();
+    const publishTimer = setTimeout(() => controller.abort(), 20000);
+    let publishResponse;
+    try {
+      publishResponse = await fetch('https://api.vk.com/method/wall.post',{
+        method:'POST',
+        headers:{ 'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8' },
+        body,
+        signal:controller.signal,
+        credentials:'omit'
+      });
+    } catch (error) {
+      if (error?.name === 'AbortError') throw new Error('wall.post: VK не ответил за 20 секунд.');
+      throw new Error(`wall.post: сетевой запрос из браузера не прошёл — ${errorText(error)}`);
+    } finally {
+      clearTimeout(publishTimer);
+    }
+
     const publishText = await publishResponse.text();
-    if (!publishResponse.ok) throw new Error(`VK publish proxy HTTP ${publishResponse.status} — ${publishText.slice(0,300)}`);
+    if (!publishResponse.ok) throw new Error(`VK wall.post HTTP ${publishResponse.status} — ${publishText.slice(0,300)}`);
     let publishJson;
     try { publishJson = JSON.parse(publishText); }
-    catch (_) { throw new Error(`VK publish proxy вернул не JSON: ${publishText.slice(0,300)}`); }
+    catch (_) { throw new Error(`VK wall.post вернул не JSON: ${publishText.slice(0,300)}`); }
     if (publishJson?.error) throw new Error(`VK wall.post · code=${publishJson.error.error_code} · ${publishJson.error.error_msg}`);
     const result = publishJson?.response;
     const postId = result?.post_id ?? result;

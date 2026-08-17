@@ -1,0 +1,11 @@
+[build]
+  base = "cloudflare-pages"
+  publish = "public"
+
+[functions]
+  directory = "netlify/functions"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cache-Control = "no-store, no-cache, must-revalidate"

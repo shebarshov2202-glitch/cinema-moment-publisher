@@ -195,7 +195,7 @@ const APP_ID = 54720636;
 const VK_API_VERSION = '5.199';
 const KP_API = 'https://kinopoiskapiunofficial.tech/api';
 const VK_UPLOAD_PROXY = '/vk-upload';
-const VK_PUBLISH_PROXY = '/vk-publish';
+const VK_PUBLISH_PROXY = 'https://api.vk.com/method/wall.post';
 const MAX_PHOTOS = 7;
 let accessToken = null;
 let communityToken = null;
@@ -728,7 +728,7 @@ publishBtn.addEventListener('click',async () => {
       else attachments.push(await uploadManualPhoto(item.file,groupId,index+1));
     }
 
-    log(`Вызываю server-side wall.post с пользовательским токеном: owner_id=${-Math.abs(groupId)}, publish_date=${publishDate}, attachments=${attachments.length}`);
+    log(`Вызываю wall.post напрямую из браузера: owner_id=${-Math.abs(groupId)}, publish_date=${publishDate}, attachments=${attachments.length}`);
     const body = new URLSearchParams();
     body.set('access_token',accessToken);
     body.set('owner_id',String(-Math.abs(groupId)));
@@ -744,10 +744,10 @@ publishBtn.addEventListener('click',async () => {
       body
     });
     const publishText = await publishResponse.text();
-    if (!publishResponse.ok) throw new Error(`VK publish proxy HTTP ${publishResponse.status} — ${publishText.slice(0,300)}`);
+    if (!publishResponse.ok) throw new Error(`VK API HTTP ${publishResponse.status} — ${publishText.slice(0,300)}`);
     let publishJson;
     try { publishJson = JSON.parse(publishText); }
-    catch (_) { throw new Error(`VK publish proxy вернул не JSON: ${publishText.slice(0,300)}`); }
+    catch (_) { throw new Error(`VK API вернул не JSON: ${publishText.slice(0,300)}`); }
     if (publishJson?.error) throw new Error(`VK wall.post · code=${publishJson.error.error_code} · ${publishJson.error.error_msg}`);
     const result = publishJson?.response;
     const postId = result?.post_id ?? result;
